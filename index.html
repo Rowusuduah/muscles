@@ -198,6 +198,83 @@ nav.tabs button.on svg{stroke:var(--ember)}
   padding:12px 18px;border-radius:12px;z-index:40;transition:.3s;max-width:90%;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.4)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* mode buttons (alone vs partner) */
+.modebtn{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1px solid var(--line);
+  background:var(--panel);border-radius:16px;padding:16px;margin-bottom:10px;color:var(--chalk)}
+.modebtn.primary{background:var(--ember);border-color:var(--ember);color:#fff;box-shadow:0 12px 30px rgba(242,85,28,.28)}
+.modebtn .ic{width:44px;height:44px;flex:0 0 auto;border-radius:11px;display:grid;place-items:center;background:rgba(255,255,255,.12)}
+.modebtn.primary .ic{background:rgba(0,0,0,.16)} .modebtn .ic svg{width:24px;height:24px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.modebtn .t{font-family:var(--disp);font-weight:600;font-size:20px;text-transform:uppercase;line-height:1}
+.modebtn .d{font-size:12.5px;opacity:.85;margin-top:4px}
+.modebtn.primary .d{opacity:.92}
+
+/* timed set logging */
+.setrow.run{background:var(--emberwash)}
+.setrow.done2{background:rgba(95,176,126,.06)}
+.startbtn{flex:1;font-family:var(--disp);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:15px;
+  border:1px solid var(--emberline);background:transparent;color:var(--ember);border-radius:10px;padding:11px}
+.endbtn{flex:1;font-family:var(--disp);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:15px;
+  border:0;background:var(--ember);color:#fff;border-radius:10px;padding:11px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.endbtn .tmr{font-family:var(--mono);font-size:13px;font-weight:500}
+.setsummary{margin-left:8px;font-family:var(--mono);font-size:12.5px;color:var(--chalk)}
+.setsummary .u{color:var(--muted)}
+.setsummary .dur{color:var(--steel);margin-left:6px}
+.restbar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:2px}
+.restbar i{display:block;height:100%;background:var(--steel);width:100%}
+
+/* how-to panel */
+.howbtn{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;background:transparent;
+  border:1px solid var(--line);color:var(--steel);border-radius:8px;padding:8px 11px}
+.howwrap{border-top:1px solid var(--line);padding:14px;display:flex;gap:14px;align-items:flex-start}
+.howfig{width:120px;flex:0 0 auto;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
+.howto{width:120px;height:150px;display:block}
+.steps{margin:0;padding:0;list-style:none;counter-reset:s;flex:1}
+.steps li{counter-increment:s;position:relative;padding:0 0 8px 26px;font-size:13px;color:var(--chalk)}
+.steps li::before{content:counter(s);position:absolute;left:0;top:-1px;width:18px;height:18px;border-radius:50%;
+  background:var(--emberwash);color:var(--ember);font-family:var(--mono);font-size:10px;display:grid;place-items:center;font-weight:600}
+.howmiss{font-size:12px;color:var(--acid,#c9556e);margin-top:6px}
+
+/* body-part big grid (partner) */
+.partgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 14px}
+.partbtn{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 14px;text-align:left;color:var(--chalk)}
+.partbtn .t{font-family:var(--disp);font-weight:600;font-size:20px;text-transform:uppercase}
+.partbtn .d{font-size:11.5px;color:var(--muted);margin-top:3px}
+
+/* compose (search & add) */
+.search{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--chalk);
+  font-family:var(--sans);font-size:14px;padding:12px;margin:0 0 10px}
+.exrow{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:7px}
+.exrow.on{border-color:var(--emberline);background:var(--emberwash)}
+.exrow .nm{flex:1}.exrow .nm b{font-weight:600;display:block;font-size:14.5px}
+.exrow .nm span{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.exrow .add{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:18px;line-height:1}
+.exrow.on .add{background:var(--ember);border-color:var(--ember);color:#fff}
+
+/* calendar */
+.calhead{display:flex;align-items:center;justify-content:space-between;margin:2px 0 10px}
+.calhead .m{font-family:var(--disp);font-weight:600;font-size:19px;text-transform:uppercase}
+.calhead button{background:transparent;border:1px solid var(--line);border-radius:8px;width:34px;height:34px;color:var(--chalk);font-size:16px}
+.calhead button:disabled{opacity:.3}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cdow{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;text-transform:uppercase;padding:2px 0}
+.cday{aspect-ratio:1;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-family:var(--mono);
+  font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center;position:relative;padding:0}
+.cday.out{background:transparent;border:0;color:transparent}
+.cday.today{outline:2px solid var(--chalk);outline-offset:1px}
+.cday.lift{background:var(--emberwash);border-color:var(--emberline);color:var(--chalk)}
+.cday.cardio{background:rgba(108,151,188,.14);border-color:rgba(108,151,188,.4);color:var(--chalk)}
+.cday .dot{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:var(--ember)}
+.caldetail{margin-top:14px}
+
+/* onboarding */
+.onboard h1{font-family:var(--disp);font-weight:700;font-size:clamp(38px,11vw,50px);text-transform:uppercase;line-height:.95;margin:14px 0 8px}
+.obpoint{display:flex;gap:12px;align-items:flex-start;margin:12px 0}
+.obpoint .n{width:26px;height:26px;flex:0 0 auto;border-radius:50%;background:var(--emberwash);color:var(--ember);font-family:var(--mono);font-weight:600;font-size:12px;display:grid;place-items:center}
+.obpoint p{margin:0;font-size:14px;color:var(--chalk)}.obpoint p b{font-weight:600}
+.unitpick{display:flex;gap:8px;margin:14px 0}
+.unitpick button{flex:1;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:10px;padding:12px;font-family:var(--mono);text-transform:uppercase;font-size:12px}
+.unitpick button.on{border-color:var(--ember);background:var(--emberwash);color:var(--ember)}
+
 :focus-visible{outline:2px solid var(--steel);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .fade{animation:fade .35s ease both}
@@ -224,7 +301,7 @@ nav.tabs button.on svg{stroke:var(--ember)}
     <section id="s-today" class="screen"></section>
     <section id="s-train" class="screen hidden"></section>
     <section id="s-progress" class="screen hidden"></section>
-    <section id="s-plan" class="screen hidden"></section>
+    <section id="s-history" class="screen hidden"></section>
     <section id="s-coach" class="screen hidden"></section>
   </main>
 </div>
@@ -233,7 +310,7 @@ nav.tabs button.on svg{stroke:var(--ember)}
   <button data-tab="today" class="on"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Today</button>
   <button data-tab="train"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M6 21c0-4 2.5-7 6-7s6 3 6 7"/></svg>Train</button>
   <button data-tab="progress"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6"/></svg>Progress</button>
-  <button data-tab="plan"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>Plan</button>
+  <button data-tab="history"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>History</button>
   <button data-tab="coach"><svg viewBox="0 0 24 24"><path d="M12 3l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 17l8 4 8-4"/></svg>Coach</button>
 </div></nav>
 
@@ -244,6 +321,7 @@ nav.tabs button.on svg{stroke:var(--ember)}
 <script src="data/equipment.js"></script>
 <script src="data/program.js"></script>
 <script src="figure.js"></script>
+<script src="howto.js"></script>
 <script src="logic.js"></script>
 <script src="app.js"></script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>

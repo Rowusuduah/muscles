@@ -78,79 +78,72 @@
     });
   }
 
-  /* Build a session that fits budgetMin. ctx: { undertrained:[muscleId] } */
-  function buildSession(program, EX, dayId, budgetMin, ctx) {
+  // fit a slots array to a time budget: keep compounds + first core, trim/expand the rest
+  function fitToBudget(slots, budgetMin, ctx, EX) {
     ctx = ctx || {};
-    var day = program.days[dayId];
-    if (!day || dayId === 'cardio') return null;
-    var slots = day.slots.map(function (s) { return resolveSlot(s, EX); });
     var budget = (budgetMin || 60) * 60;
-
-    // essentials: all compounds + the first core slot
     var coreSeen = false;
     slots.forEach(function (s) {
       s.essential = (s.role === 'compound') || (s.role === 'core' && !coreSeen);
       if (s.role === 'core' && !coreSeen) coreSeen = true;
     });
-
-    // TRIM if over budget: drop trailing non-essential accessories first
-    function trimmable() {
-      for (var i = slots.length - 1; i >= 0; i--) if (!slots[i].essential) return i;
-      return -1;
-    }
-    while (sumSeconds(slots) > budget) {
-      var i = trimmable();
-      if (i < 0) break;
-      slots.splice(i, 1);
-    }
-    // still over (only essentials left): shave accessory sets, then compound sets, to a floor of 2
+    function trimmable() { for (var i = slots.length - 1; i >= 0; i--) if (!slots[i].essential) return i; return -1; }
+    while (sumSeconds(slots) > budget) { var i = trimmable(); if (i < 0) break; slots.splice(i, 1); }
     while (sumSeconds(slots) > budget) {
       var shaved = false;
-      for (var j = slots.length - 1; j >= 0; j--) {
-        var floor = slots[j].role === 'compound' ? 3 : 2;
-        if (slots[j].sets > floor) { slots[j].sets -= 1; shaved = true; break; }
-      }
-      if (!shaved) {
-        for (var k = slots.length - 1; k >= 0; k--) {
-          if (slots[k].sets > 2) { slots[k].sets -= 1; shaved = true; break; }
-        }
-      }
+      for (var j = slots.length - 1; j >= 0; j--) { var floor = slots[j].role === 'compound' ? 3 : 2; if (slots[j].sets > floor) { slots[j].sets -= 1; shaved = true; break; } }
+      if (!shaved) { for (var k = slots.length - 1; k >= 0; k--) { if (slots[k].sets > 2) { slots[k].sets -= 1; shaved = true; break; } } }
       if (!shaved) break;
     }
-
-    // EXPAND if under budget: add a set to accessories (cap 5), then bonus undertrained accessory
     function canAddSet() {
-      for (var a = 0; a < slots.length; a++) {
-        if (slots[a].role === 'accessory' && slots[a].sets < 5) {
-          if (sumSeconds(slots) + (SET_SEC + slots[a].ex.restSec) <= budget) return a;
-        }
-      }
+      for (var a = 0; a < slots.length; a++) if (slots[a].role === 'accessory' && slots[a].sets < 5)
+        if (sumSeconds(slots) + (SET_SEC + slots[a].ex.restSec) <= budget) return a;
       return -1;
     }
-    var guard = 0;
-    while (guard++ < 40) {
-      var a = canAddSet();
-      if (a < 0) break;
-      slots[a].sets += 1;
-    }
-    // bonus accessory for an undertrained muscle if a full slot still fits
-    var present = {}; slots.forEach(function (s) { present[s.exId] = true; });
-    (ctx.undertrained || []).forEach(function (mid) {
-      var cands = accessoryForMuscle(mid, EX, present).filter(function (e) {
-        return availableExerciseIds ? true : true; // availability checked by caller's data
-      });
-      if (cands.length) {
-        var ex = cands[0];
-        var bonus = { role: 'accessory', target: mid, exId: ex.id, ex: ex, alt: [], sets: ex.sets, essential: false, bonus: true };
-        if (sumSeconds(slots) + slotSeconds(ex, ex.sets) <= budget) {
-          slots.splice(slots.length - 1, 0, bonus); // before the core finisher
-          present[ex.id] = true;
+    var guard = 0; while (guard++ < 40) { var a = canAddSet(); if (a < 0) break; slots[a].sets += 1; }
+    if (EX && ctx.undertrained) {
+      var present = {}; slots.forEach(function (s) { present[s.exId] = true; });
+      ctx.undertrained.forEach(function (mid) {
+        var cands = accessoryForMuscle(mid, EX, present);
+        if (cands.length) {
+          var ex = cands[0];
+          if (sumSeconds(slots) + slotSeconds(ex, ex.sets) <= budget) {
+            slots.splice(slots.length - 1, 0, { role: 'accessory', target: mid, exId: ex.id, ex: ex, alt: [], sets: ex.sets, essential: false, bonus: true });
+            present[ex.id] = true;
+          }
         }
-      }
-    });
+      });
+    }
+    return slots;
+  }
 
-    var est = Math.round(sumSeconds(slots) / 60);
-    return { dayId: dayId, name: day.name, focusMuscles: day.focusMuscles, budgetMin: budgetMin || 60, estMin: est, slots: slots };
+  /* Build a coached (PPL) session that fits budgetMin. ctx: { undertrained:[muscleId] } */
+  function buildSession(program, EX, dayId, budgetMin, ctx) {
+    var day = program.days[dayId];
+    if (!day || dayId === 'cardio') return null;
+    var slots = day.slots.map(function (s) { return resolveSlot(s, EX); });
+    fitToBudget(slots, budgetMin, ctx || {}, EX);
+    return { dayId: dayId, name: day.name, focusMuscles: day.focusMuscles, budgetMin: budgetMin || 60, estMin: Math.round(sumSeconds(slots) / 60), slots: slots, mode: 'coached' };
+  }
+
+  // same-muscle alternative exercise ids, ranked (same pattern first)
+  function altsForExercise(exId, EX) {
+    var ex = EX[exId]; if (!ex) return [];
+    var prim = ex.primary[0];
+    return Object.keys(EX).map(function (k) { return EX[k]; }).filter(function (e) {
+      return e.id !== exId && e.role !== 'cardio' && e.primary.indexOf(prim) >= 0;
+    }).sort(function (a, b) { return (b.pattern === ex.pattern ? 1 : 0) - (a.pattern === ex.pattern ? 1 : 0); }).map(function (e) { return e.id; });
+  }
+
+  /* Build a freeform session from an explicit exercise-id list (partner mode). */
+  function buildCustom(exIds, EX, budgetMin, name) {
+    var slots = exIds.map(function (id) {
+      var ex = EX[id]; if (!ex) return null;
+      return { role: ex.role, target: ex.primary[0], exId: id, ex: ex, alt: altsForExercise(id, EX), sets: ex.sets };
+    }).filter(Boolean);
+    if (budgetMin) fitToBudget(slots, budgetMin, {}, EX);
+    var focus = {}; slots.forEach(function (s) { (s.ex.primary || []).forEach(function (m) { focus[m] = 1; }); });
+    return { dayId: name || 'custom', name: name || 'Session', focusMuscles: Object.keys(focus), budgetMin: budgetMin || null, estMin: Math.round(sumSeconds(slots) / 60), slots: slots, mode: 'partner' };
   }
 
   /* cardio session seeded by budget */
@@ -257,6 +250,45 @@
       .sort(function (a, b) { return a.ratio - b.ratio; });
   }
 
+  /* ---------------- adaptive coach ---------------- */
+  function recentMuscles(log, EX, todayISO, days) {
+    days = days || 2; var s = {};
+    Object.keys(log).forEach(function (date) {
+      var d = daysBetween(date, todayISO); if (d < 0 || d >= days) return;
+      (log[date].exercises || []).forEach(function (it) { var ex = EX[it.exId]; if (ex) (ex.primary || []).forEach(function (m) { s[m] = true; }); });
+    });
+    return s;
+  }
+  function lastDayId(log, todayISO) {
+    var dates = Object.keys(log).sort().reverse();
+    for (var i = 0; i < dates.length; i++) if (daysBetween(dates[i], todayISO) <= 3 && log[dates[i]].day) return log[dates[i]].day;
+    return null;
+  }
+  // pick the smartest next alone-mode day from recent history + weekly deficits
+  function nextAloneDay(program, EX, MUSCLES, log, todayISO) {
+    var wk = weeklyVolume(log, EX, todayISO, 7);
+    var recent = recentMuscles(log, EX, todayISO, 2);
+    var last = lastDayId(log, todayISO);
+    var MU = {}; MUSCLES.forEach(function (m) { MU[m.id] = m; });
+    var recentDays = Object.keys(log).filter(function (d) { var x = daysBetween(d, todayISO); return x >= 0 && x < 3; }).map(function (d) { return log[d].day; });
+    var lifts = recentDays.filter(function (d) { return d && d !== 'cardio'; }).length;
+    if (lifts >= 3 && recentDays.indexOf('cardio') < 0) return { dayId: 'cardio', reason: 'You\'ve lifted hard lately — an easy cardio day helps you recover.' };
+    var best = program.liftingDays[0], bestScore = -1e9;
+    program.liftingDays.forEach(function (d) {
+      var focus = program.days[d].focusMuscles;
+      var deficit = focus.reduce(function (s, m) { return s + Math.max(0, (MU[m] ? MU[m].weeklyTarget : 12) - (wk[m] ? wk[m].sets : 0)); }, 0);
+      var penalty = focus.filter(function (m) { return recent[m]; }).length * 5;
+      if (d === last) penalty += 8;
+      var score = deficit - penalty;
+      if (score > bestScore) { bestScore = score; best = d; }
+    });
+    var behind = program.days[best].focusMuscles.filter(function (m) { return (wk[m] ? wk[m].sets : 0) < (MU[m] ? MU[m].weeklyTarget : 12) * 0.5; }).map(function (m) { return MU[m].name; });
+    return { dayId: best, reason: behind.length ? (behind.slice(0, 2).join(' & ') + ' need work this week.') : 'Keeping your week balanced.' };
+  }
+  function exercisesForBodyPart(part, EXERCISES) {
+    return EXERCISES.filter(function (e) { return e.role !== 'cardio' && (e.primary || []).some(function (m) { return part.muscles.indexOf(m) >= 0; }); });
+  }
+
   /* ---------------- streak (never-miss-twice) ---------------- */
   function sessionOn(log, dateISO) {
     var e = log[dateISO];
@@ -331,6 +363,8 @@
     e1rm: e1rm, dayIdAt: dayIdAt, nextIndex: nextIndex, byId: byId,
     availableExerciseIds: availableExerciseIds, machinesForExercise: machinesForExercise,
     slotSeconds: slotSeconds, buildSession: buildSession, buildCardio: buildCardio,
+    fitToBudget: fitToBudget, buildCustom: buildCustom, altsForExercise: altsForExercise,
+    recentMuscles: recentMuscles, lastDayId: lastDayId, nextAloneDay: nextAloneDay, exercisesForBodyPart: exercisesForBodyPart,
     prescribe: prescribe, updateLift: updateLift,
     weeklyVolume: weeklyVolume, cardioMinutes: cardioMinutes, heat: heat, recommendations: recommendations,
     streak: streak, bestStreak: bestStreak, totalSets: totalSets, rank: rank,

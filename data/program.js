@@ -74,11 +74,36 @@
     cardio: { modalities: ['treadmill_steady', 'elliptical_steady', 'treadmill_interval'], defaultEx: 'treadmill_steady', effortTarget: 'Zone 2 — conversational' }
   };
 
+  /* CLASSIC body-part split — used in "Train with a partner" mode, where a human
+     guides you, so the app organises by single body part (bro split) instead of PPL.
+     Each is a recommended starting list of exercise ids; the user can add/remove/search. */
+  var CLASSIC = {
+    chest: ['pl_incline_press', 'pl_chest_press', 'pec_deck', 'cable_crossover', 'assisted_dip', 'pushup'],
+    back: ['lat_pulldown', 'pl_low_row', 'sel_seated_row', 'pl_high_row', 'straight_arm_pulldown', 'db_row'],
+    shoulders: ['sel_shoulder_press', 'db_lateral', 'rear_delt_machine', 'cable_lateral', 'face_pull', 'db_shrug'],
+    arms: ['ez_curl', 'cable_pushdown', 'hammer_curl', 'overhead_cable_ext', 'sel_arm_curl', 'incline_db_curl'],
+    legs: ['leg_press', 'hack_squat', 'leg_extension', 'seated_leg_curl', 'smith_rdl', 'standing_calf'],
+    core: ['hanging_leg_raise', 'cable_crunch', 'ab_crunch_machine', 'plank', 'russian_twist']
+  };
+
+  /* body-part categories (for the partner picker + Train explorer + figure highlight) */
+  var BODYPARTS = [
+    { id: 'chest', name: 'Chest', muscles: ['chest', 'front_delts'] },
+    { id: 'back', name: 'Back', muscles: ['lats', 'mid_back', 'traps', 'lower_back'] },
+    { id: 'shoulders', name: 'Shoulders', muscles: ['front_delts', 'side_delts', 'rear_delts'] },
+    { id: 'arms', name: 'Arms', muscles: ['biceps', 'triceps', 'forearms'] },
+    { id: 'legs', name: 'Legs', muscles: ['quads', 'hamstrings', 'glutes', 'calves'] },
+    { id: 'core', name: 'Abs / Core', muscles: ['abs', 'obliques'] }
+  ];
+
   return {
     id: 'ppl-ul+2cardio',
     goal: 'hypertrophy',
     days: { push: push, pull: pull, legs: legs, upper: upper, lower: lower, cardio: cardio },
     /* the fixed 7-session order the cycle advances through */
-    cycle: ['push', 'pull', 'legs', 'cardio', 'upper', 'lower', 'cardio']
+    cycle: ['push', 'pull', 'legs', 'cardio', 'upper', 'lower', 'cardio'],
+    liftingDays: ['push', 'pull', 'legs', 'upper', 'lower'],
+    classic: CLASSIC,
+    bodyParts: BODYPARTS
   };
 });

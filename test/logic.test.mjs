@@ -105,6 +105,52 @@ test('busyAlternatives: only exercises the gym has', () => {
   alts.forEach((a) => assert.ok(a.id));
 });
 
+test('buildCustom: builds a fitted session from an exercise list', () => {
+  const s = L.buildCustom(['pl_incline_press', 'pec_deck', 'cable_crossover', 'assisted_dip'], EX, 45, 'Chest');
+  assert.ok(s.slots.length >= 2);
+  assert.equal(s.mode, 'partner');
+  assert.ok(s.estMin <= 46);
+  assert.ok(s.slots.every((x) => x.ex));
+});
+
+test('altsForExercise: same-muscle alternatives, not itself', () => {
+  const alts = L.altsForExercise('pl_incline_press', EX);
+  assert.ok(alts.length >= 1);
+  assert.ok(alts.indexOf('pl_incline_press') < 0);
+  assert.ok(alts.every((id) => EX[id].primary.indexOf('chest') >= 0));
+});
+
+test('nextAloneDay: avoids repeating just-trained muscles', () => {
+  const log = {
+    '2026-07-31': { day: 'push', exercises: [{ exId: 'pl_incline_press', sets: [{ reps: 10, weight: 45 }] }, { exId: 'sel_shoulder_press', sets: [{ reps: 10, weight: 40 }] }] }
+  };
+  const r = L.nextAloneDay(PROGRAM, EX, MUSCLES, log, '2026-07-31');
+  assert.ok(r.dayId && r.dayId !== 'push', 'should not repeat push right after push');
+  assert.ok(typeof r.reason === 'string');
+});
+
+test('nextAloneDay: suggests cardio after 3 lifting days', () => {
+  const log = {
+    '2026-07-31': { day: 'push', exercises: [{ exId: 'pl_chest_press', sets: [{ reps: 8, weight: 40 }] }] },
+    '2026-07-30': { day: 'pull', exercises: [{ exId: 'lat_pulldown', sets: [{ reps: 8, weight: 60 }] }] },
+    '2026-07-29': { day: 'legs', exercises: [{ exId: 'leg_press', sets: [{ reps: 12, weight: 180 }] }] }
+  };
+  assert.equal(L.nextAloneDay(PROGRAM, EX, MUSCLES, log, '2026-07-31').dayId, 'cardio');
+});
+
+test('exercisesForBodyPart: chest returns chest movements', () => {
+  const part = PROGRAM.bodyParts.find((p) => p.id === 'chest');
+  const list = L.exercisesForBodyPart(part, EXERCISES);
+  assert.ok(list.length >= 3);
+  assert.ok(list.every((e) => e.primary.some((m) => part.muscles.indexOf(m) >= 0)));
+});
+
+test('classic split: every classic exercise exists', () => {
+  Object.keys(PROGRAM.classic).forEach((part) => {
+    PROGRAM.classic[part].forEach((id) => assert.ok(EX[id], `classic ${part} missing ${id}`));
+  });
+});
+
 test('data integrity: every program exercise & alt exists', () => {
   Object.keys(PROGRAM.days).forEach((d) => {
     const day = PROGRAM.days[d];
