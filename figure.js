@@ -9,9 +9,9 @@
 })(typeof self !== 'undefined' ? self : this, function () {
 
   var COLD = [0x24, 0x2a, 0x30];      // graphite (untrained)
-  var WARM = [0xb2, 0x3c, 0x14];      // deep ember
-  var HOT  = [0xf2, 0x55, 0x1c];      // ember
-  var PEAK = [0xff, 0x8a, 0x4c];      // bright ember
+  var WARM = [0x17, 0x63, 0x2f];      // deep green
+  var HOT  = [0x31, 0xc8, 0x5e];      // green
+  var PEAK = [0x7d, 0xf2, 0x9b];      // bright green
   function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
   function hx(c) { return '#' + c.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join(''); }
   function heatColor(t) {

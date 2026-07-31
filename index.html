@@ -17,8 +17,8 @@
 :root{
   --iron:#121417; --panel:#1A1E22; --panel2:#22272C; --line:#2C3237; --line2:#3A424A;
   --chalk:#F1EEE6; --muted:#8B939B; --muted2:#6A727A;
-  --ember:#F2551C; --ember2:#FF8348; --emberwash:rgba(242,85,28,.12); --emberline:rgba(242,85,28,.40);
-  --steel:#6C97BC; --ok:#5FB07E; --musc:#242A30;
+  --ember:#31C85E; --ember2:#6FEA92; --emberwash:rgba(49,200,94,.13); --emberline:rgba(49,200,94,.42);
+  --steel:#6C97BC; --ok:#5FB07E; --musc:#242A30; --bad:#E4585C;
   --disp:'Oswald','Arial Narrow',sans-serif;
   --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
   --sans:'Inter','Helvetica Neue',Arial,sans-serif;
@@ -62,7 +62,7 @@ header{padding:calc(20px + env(safe-area-inset-top)) 0 6px}
 /* big CTA */
 .cta{display:block;width:100%;border:0;border-radius:16px;background:var(--ember);color:#fff;
   font-family:var(--disp);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:22px;
-  padding:20px;box-shadow:0 12px 30px rgba(242,85,28,.28)}
+  padding:20px;box-shadow:0 12px 30px rgba(49,200,94,.30)}
 .cta.sub{background:var(--panel);color:var(--chalk);border:1px solid var(--line);box-shadow:none;font-size:15px;padding:13px}
 .cta:active{transform:translateY(1px)}
 
@@ -201,7 +201,7 @@ nav.tabs button.on svg{stroke:var(--ember)}
 /* mode buttons (alone vs partner) */
 .modebtn{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1px solid var(--line);
   background:var(--panel);border-radius:16px;padding:16px;margin-bottom:10px;color:var(--chalk)}
-.modebtn.primary{background:var(--ember);border-color:var(--ember);color:#fff;box-shadow:0 12px 30px rgba(242,85,28,.28)}
+.modebtn.primary{background:var(--ember);border-color:var(--ember);color:#fff;box-shadow:0 12px 30px rgba(49,200,94,.30)}
 .modebtn .ic{width:44px;height:44px;flex:0 0 auto;border-radius:11px;display:grid;place-items:center;background:rgba(255,255,255,.12)}
 .modebtn.primary .ic{background:rgba(0,0,0,.16)} .modebtn .ic svg{width:24px;height:24px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .modebtn .t{font-family:var(--disp);font-weight:600;font-size:20px;text-transform:uppercase;line-height:1}
@@ -221,6 +221,12 @@ nav.tabs button.on svg{stroke:var(--ember)}
 .setsummary .dur{color:var(--steel);margin-left:6px}
 .restbar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:2px}
 .restbar i{display:block;height:100%;background:var(--steel);width:100%}
+.setrow.run.col{flex-direction:column;align-items:stretch;gap:8px}
+.subin{display:flex;align-items:center;gap:8px}
+.subnm{font-family:var(--mono);font-size:9px;color:var(--muted);width:54px;text-transform:uppercase;flex:0 0 auto}
+.rpbtn{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.05em;border:1px solid var(--line);background:transparent;color:var(--steel);border-radius:7px;padding:5px 8px;margin-left:8px}
+.rpadd{display:flex;align-items:center;gap:6px;margin-left:8px}
+.rpadd input{width:54px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--chalk);font-family:var(--mono);font-size:13px;padding:6px;text-align:center}
 
 /* how-to panel */
 .howbtn{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;background:transparent;
@@ -232,7 +238,12 @@ nav.tabs button.on svg{stroke:var(--ember)}
 .steps li{counter-increment:s;position:relative;padding:0 0 8px 26px;font-size:13px;color:var(--chalk)}
 .steps li::before{content:counter(s);position:absolute;left:0;top:-1px;width:18px;height:18px;border-radius:50%;
   background:var(--emberwash);color:var(--ember);font-family:var(--mono);font-size:10px;display:grid;place-items:center;font-weight:600}
-.howmiss{font-size:12px;color:var(--acid,#c9556e);margin-top:6px}
+.howmiss{font-size:12px;color:var(--bad);margin-top:6px}
+.howv.hidden{display:none}
+.howtog{display:flex;gap:6px;margin-top:6px;justify-content:center}
+.howtog button{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:7px;padding:5px 8px}
+.howtog button.on{border-color:var(--ember);color:var(--ember)}
+.howtog button.on.bad{border-color:var(--bad);color:var(--bad)}
 
 /* body-part big grid (partner) */
 .partgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 14px}
@@ -245,6 +256,8 @@ nav.tabs button.on svg{stroke:var(--ember)}
   font-family:var(--sans);font-size:14px;padding:12px;margin:0 0 10px}
 .exrow{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:7px}
 .exrow.on{border-color:var(--emberline);background:var(--emberwash)}
+.exthumb{width:52px;height:52px;border-radius:9px;object-fit:cover;flex:0 0 auto;background:var(--panel2);border:1px solid var(--line)}
+.exthumb.ph{display:grid;place-items:center;color:var(--muted2);font-family:var(--mono)}
 .exrow .nm{flex:1}.exrow .nm b{font-weight:600;display:block;font-size:14.5px}
 .exrow .nm span{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .exrow .add{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:18px;line-height:1}

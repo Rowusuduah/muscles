@@ -98,6 +98,23 @@
     { id: 'm_bosu', name: 'BOSU Balls', type: 'accessory', photo: img(48), src: raw(48),
       cats: ['abs'], exerciseIds: ['plank'], note: 'Balance/core work.' },
     { id: 'm_rollers', name: 'Foam Rollers', type: 'accessory', photo: img(49), src: raw(49),
-      cats: [], exerciseIds: [], note: 'Warm-up and recovery, not a lift.' }
+      cats: [], exerciseIds: [], note: 'Warm-up and recovery, not a lift.' },
+
+    /* ---- additional machines from the remaining photos (verify names in the gym) ---- */
+    { id: 'm_conv_press', name: 'Converging Chest Press', type: 'plate', photo: img(1), src: raw(1), cats: ['chest'], exerciseIds: ['pl_chest_press', 'pl_incline_press'], confirm: true },
+    { id: 'm_pl_shoulder2', name: 'Plate Shoulder Press', type: 'plate', photo: img(4), src: raw(4), cats: ['shoulders'], exerciseIds: ['pl_shoulder_press'], confirm: true },
+    { id: 'm_iso_incline', name: 'Iso-Lateral Incline Press', type: 'plate', photo: img(8), src: raw(8), cats: ['chest'], exerciseIds: ['pl_incline_press'], confirm: true },
+    { id: 'm_row_rear', name: 'Seated Row / Rear Delt', type: 'plate', photo: img(10), src: raw(10), cats: ['back', 'shoulders'], exerciseIds: ['pl_low_row', 'rear_delt_machine'], confirm: true },
+    { id: 'm_high_row', name: 'High Row / Pulldown', type: 'selectorized', photo: img(14), src: raw(14), cats: ['back'], exerciseIds: ['lat_pulldown', 'pl_high_row'], confirm: true },
+    { id: 'm_seated_curl2', name: 'Seated Leg Curl (plate)', type: 'plate', photo: img(15), src: raw(15), cats: ['legs'], exerciseIds: ['seated_leg_curl'], confirm: true },
+    { id: 'm_reardelt_pl', name: 'Rear Delt / Pec Deck (plate)', type: 'plate', photo: img(16), src: raw(16), cats: ['shoulders', 'chest'], exerciseIds: ['rear_delt_machine', 'pec_deck'], confirm: true },
+    { id: 'm_rack2', name: 'Squat Rack / Smith', type: 'rack', photo: img(18), src: raw(18), cats: ['legs', 'chest'], exerciseIds: ['smith_squat', 'smith_bench', 'goblet_squat'], confirm: true },
+    { id: 'm_legext_curl', name: 'Leg Extension / Curl', type: 'plate', photo: img(23), src: raw(23), cats: ['legs'], exerciseIds: ['leg_extension', 'seated_leg_curl'], confirm: true },
+    { id: 'm_bench2', name: 'Adjustable Bench (2)', type: 'bench', photo: img(25), src: raw(25), cats: ['chest', 'arms'], exerciseIds: ['db_incline', 'db_bench', 'incline_db_curl'], confirm: true },
+    { id: 'm_incline_silver', name: 'Incline Press (plate)', type: 'plate', photo: img(27), src: raw(27), cats: ['chest'], exerciseIds: ['pl_incline_press'], confirm: true },
+    { id: 'm_cable_station', name: 'Functional Cable Station', type: 'cable', photo: img(35), src: raw(35), cats: ['back', 'arms', 'shoulders', 'chest'], exerciseIds: ['cable_row', 'cable_pushdown', 'cable_curl', 'cable_lateral', 'face_pull', 'straight_arm_pulldown'], confirm: true },
+    { id: 'm_legext2', name: 'Leg Extension (selectorized)', type: 'selectorized', photo: img(39), src: raw(39), cats: ['legs'], exerciseIds: ['leg_extension'], confirm: true },
+    { id: 'm_jungle', name: 'Cable Jungle (multi-station)', type: 'cable', photo: img(41), src: raw(41), cats: ['back', 'arms', 'chest'], exerciseIds: ['lat_pulldown', 'cable_row', 'cable_pushdown', 'cable_crossover'], confirm: true },
+    { id: 'm_crossover2', name: 'Cable Crossover / Triceps', type: 'cable', photo: img(42), src: raw(42), cats: ['chest', 'arms'], exerciseIds: ['cable_crossover', 'cable_pushdown', 'face_pull'], confirm: true }
   ];
 });

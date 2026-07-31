@@ -146,7 +146,8 @@
       '<input class="search" id="exsearch" placeholder="Search a machine or exercise…" value="' + esc(SESSION.query || '') + '" oninput="window.__search(this.value)">' +
       pool.map(function (e) {
         var m = machinesForEx(e.id)[0]; var on = picked.indexOf(e.id) >= 0;
-        return '<div class="exrow ' + (on ? 'on' : '') + '" data-action="toggle-ex" data-ex="' + e.id + '"><div class="nm"><b>' + esc(e.name) + '</b><span>' + esc(e.primary.map(function (x) { return MU[x] ? MU[x].name : x; }).join(', ')) + (m ? ' · ' + esc(m.name) : '') + '</span></div><button class="add">' + (on ? '✓' : '+') + '</button></div>';
+        var thumb = m && m.photo ? '<img class="exthumb" src="' + m.photo + '" onerror="this.style.visibility=\'hidden\'" alt="">' : '<div class="exthumb ph">?</div>';
+        return '<div class="exrow ' + (on ? 'on' : '') + '" data-action="toggle-ex" data-ex="' + e.id + '">' + thumb + '<div class="nm"><b>' + esc(e.name) + '</b><span>' + esc(e.primary.map(function (x) { return MU[x] ? MU[x].name : x; }).join(', ')) + (m ? ' · ' + esc(m.name) : '') + '</span></div><button class="add">' + (on ? '✓' : '+') + '</button></div>';
       }).join('') +
       '<div style="height:12px"></div><button class="cta" data-action="partner-time">Next → set the time</button>';
   }
@@ -164,19 +165,23 @@
     SESSION.budgetMin = min || null; SESSION.idx = 0; SESSION.phase = 'active'; renderSession();
   }
 
+  /* set object + fresh log */
+  function newSet(weight, kind) { return { kind: kind || 'work', reps: null, weight: weight, done: false, running: false, startMs: 0, durSec: 0, endClock: '', clusters: [], b: null, rp: false }; }
+  function freshLog(n, weight) { var a = []; for (var i = 0; i < n; i++) a.push(newSet(weight)); return a; }
+
   /* prepare a built session's per-slot working state */
   function prepBuilt(built) {
     built.slots.forEach(function (s) {
       var pre = L.prescribe(s.ex, lifts[s.exId]);
       s.machineId = (machinesForEx(s.exId)[0] || {}).id || null;
-      s.pre = pre; s.showHow = false;
-      s.log = []; for (var i = 0; i < s.sets; i++) s.log.push({ reps: null, weight: pre.weight, done: false, running: false, startMs: 0, durSec: 0, endClock: '' });
+      s.pre = pre; s.showHow = false; s.superEx = null;
+      s.log = freshLog(s.sets, pre.weight);
     });
     return built;
   }
 
   /* ---------- ACTIVE session (timed logging + how-to) ---------- */
-  function sessionProgress() { var done = 0, total = 0; SESSION.built.slots.forEach(function (s) { total += s.sets; s.log.forEach(function (x) { if (x.done) done++; }); }); return { done: done, total: total }; }
+  function sessionProgress() { var done = 0, total = 0; SESSION.built.slots.forEach(function (s) { s.log.forEach(function (x) { if (x.kind === 'warmup') return; total++; if (x.done) done++; }); }); return { done: done, total: total }; }
 
   function renderActive() {
     clearInterval(workInt); clearInterval(restInt);
@@ -207,6 +212,8 @@
         picker + target + how +
         '<div class="sets">' + rows + '</div>' +
         '<div class="cfoot"><span class="cue"><b>Cue:</b> ' + esc(ex.cues[0]) + '</span>' +
+        '<button class="mini" data-action="add-warmup">+ Warm-up</button>' +
+        '<button class="mini ' + (s.superEx ? 'busy' : '') + '" data-action="superset">' + (s.superEx ? 'Superset ✓' : '+ Superset') + '</button>' +
         '<button class="mini busy" data-action="busy">Busy?</button>' +
         '<button class="next-btn" data-action="next-slot">' + (last ? 'Finish ▸' : 'Next ▸') + '</button></div></div>';
     if (SESSION._rest) startRestUI(SESSION._rest);
@@ -220,34 +227,58 @@
       others.map(function (id) { return '<span class="chip cool tap" data-action="switch-ex" data-ex="' + id + '">' + esc(EX[id].name) + '</span>'; }).join('') + '</div>';
   }
 
+  function setNumber(s, i) { var n = 0; for (var j = 0; j <= i; j++) if (s.log[j].kind !== 'warmup') n++; return n; }
+  function slabFor(x, s, i) { return x.kind === 'warmup' ? 'WARM' : 'SET ' + setNumber(s, i); }
+  function shortName(ex) { return ex ? ex.name.split(' ')[0] : ''; }
+  function subInputs(x, i, ex, superEx) {
+    var wD = x.weight != null ? L.toDisplay(x.weight, cfg.units) : '';
+    var A = '<div class="subin">' + (superEx ? '<span class="subnm">' + esc(shortName(ex)) + '</span>' : '') +
+      '<input type="number" inputmode="numeric" placeholder="reps" value="' + (x.reps != null ? x.reps : '') + '" data-set="' + i + '" data-f="reps">' +
+      '<input type="number" inputmode="decimal" placeholder="wt" value="' + wD + '" data-set="' + i + '" data-f="weight"><span class="x">' + cfg.units + '</span></div>';
+    if (!superEx) return A;
+    var b = x.b || {}; var bw = b.weight != null ? L.toDisplay(b.weight, cfg.units) : '';
+    var B = '<div class="subin"><span class="subnm">' + esc(shortName(EX[superEx])) + '</span>' +
+      '<input type="number" inputmode="numeric" placeholder="reps" value="' + (b.reps != null ? b.reps : '') + '" data-set="' + i + '" data-f="breps">' +
+      '<input type="number" inputmode="decimal" placeholder="wt" value="' + bw + '" data-set="' + i + '" data-f="bweight"><span class="x">' + cfg.units + '</span></div>';
+    return A + B;
+  }
   function setRow(x, i, s, ex) {
+    var no = slabFor(x, s, i);
     if (x.done) {
-      return '<div class="setrow done2"><span class="slab">SET ' + (i + 1) + '</span>' +
-        '<span class="setsummary">' + x.reps + ' <span class="u">reps</span> · ' + L.toDisplay(x.weight, cfg.units) + ' <span class="u">' + cfg.units + '</span><span class="dur">⏱ ' + fmtDur(x.durSec) + '</span></span>' +
-        '<span class="tick done" style="margin-left:auto"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span></div>';
+      var reps = x.clusters && x.clusters.length > 1 ? x.clusters.join('+') : x.reps;
+      var main = '<span class="slab">' + no + '</span><span class="setsummary">' + reps + ' <span class="u">reps</span> · ' + L.toDisplay(x.weight, cfg.units) + ' <span class="u">' + cfg.units + '</span>';
+      if (s.superEx && x.b && x.b.reps) main += ' <span class="u">+</span> ' + esc(shortName(EX[s.superEx])) + ' ' + x.b.reps + '×' + L.toDisplay(x.b.weight || 0, cfg.units);
+      if (x.durSec) main += '<span class="dur">⏱ ' + fmtDur(x.durSec) + '</span>';
+      main += '</span>';
+      var rp = x.rp
+        ? '<span class="rpadd"><input type="number" inputmode="numeric" placeholder="+reps" data-rp="' + i + '"><button class="mini" data-action="rp-add" data-set="' + i + '">Add</button></span>'
+        : (x.kind !== 'warmup' ? '<button class="rpbtn" data-action="rp-open" data-set="' + i + '">+ rest-pause</button>' : '');
+      return '<div class="setrow done2">' + main + rp + '<span class="tick done" style="margin-left:auto"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span></div>';
     }
     if (x.running) {
-      var wDisp = x.weight != null ? L.toDisplay(x.weight, cfg.units) : '';
-      return '<div class="setrow run"><span class="slab">SET ' + (i + 1) + '</span>' +
-        '<input type="number" inputmode="numeric" placeholder="reps" value="' + (x.reps != null ? x.reps : '') + '" data-set="' + i + '" data-f="reps">' +
-        '<input type="number" inputmode="decimal" placeholder="wt" value="' + wDisp + '" data-set="' + i + '" data-f="weight"><span class="x">' + cfg.units + '</span>' +
-        '<button class="endbtn" data-action="end-set" data-set="' + i + '">End set <span class="tmr" id="tmr-' + i + '">0s</span></button></div>';
+      return '<div class="setrow run ' + (s.superEx ? 'col' : '') + '"><span class="slab">' + no + '</span>' + subInputs(x, i, ex, s.superEx) +
+        '<button class="endbtn" data-action="end-set" data-set="' + i + '">End <span class="tmr" id="tmr-' + i + '">0s</span></button></div>';
     }
-    // idle: only the next un-started set gets a Start button; later sets show target
     var firstIdle = s.log.findIndex(function (y) { return !y.done && !y.running; });
     if (i === firstIdle) {
-      return '<div class="setrow"><span class="slab">SET ' + (i + 1) + '</span>' +
-        '<button class="startbtn" data-action="start-set" data-set="' + i + '">Start set ' + (i + 1) + '</button></div>';
+      return '<div class="setrow"><span class="slab">' + no + '</span><button class="startbtn" data-action="start-set" data-set="' + i + '">Start ' + (x.kind === 'warmup' ? 'warm-up' : 'set ' + setNumber(s, i)) + '</button></div>';
     }
-    return '<div class="setrow"><span class="slab">SET ' + (i + 1) + '</span><span class="setsummary u" style="color:var(--muted2)">target ' + ex.repRange[0] + '–' + ex.repRange[1] + ' · ' + wLbl(x.weight) + '</span></div>';
+    return '<div class="setrow"><span class="slab">' + no + '</span><span class="setsummary u" style="color:var(--muted2)">target ' + ex.repRange[0] + '–' + ex.repRange[1] + ' · ' + wLbl(x.weight) + '</span></div>';
   }
 
   function howPanel(ex) {
     var steps = HOWTO.steps(ex.pattern);
-    return '<div class="howwrap"><div class="howfig">' + HOWTO.howtoSVG(ex.pattern) + '</div><div style="flex:1">' +
-      '<ol class="steps">' + steps.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ol>' +
-      '<div class="howmiss"><b>Avoid:</b> ' + esc(ex.mistakes[0]) + '</div></div></div>';
+    return '<div class="howwrap"><div class="howfig"><div class="howv">' + HOWTO.howtoSVG(ex.pattern, 'right') + '</div>' +
+      '<div class="howv hidden">' + HOWTO.howtoSVG(ex.pattern, 'wrong') + '</div>' +
+      '<div class="howtog"><button class="on" onclick="window.__howtog(this,0)">✓ Right</button><button onclick="window.__howtog(this,1)">✗ Wrong</button></div></div>' +
+      '<div style="flex:1"><ol class="steps">' + steps.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ol>' +
+      '<div class="howmiss"><b>Don\'t:</b> ' + esc(HOWTO.wrongLabel(ex.pattern)) + '.</div></div></div>';
   }
+  window.__howtog = function (btn, i) {
+    var w = btn.closest('.howwrap'); if (!w) return;
+    w.querySelectorAll('.howv').forEach(function (f, j) { f.classList.toggle('hidden', j !== i); });
+    w.querySelectorAll('.howtog button').forEach(function (b, j) { b.classList.toggle('on', j === i); b.classList.toggle('bad', i === 1 && j === 1); });
+  };
 
   /* set timers */
   function startSet(i) {
@@ -263,17 +294,21 @@
     var wIn = document.querySelector('#s-today input[data-set="' + i + '"][data-f="weight"]');
     var reps = rIn && rIn.value !== '' ? parseInt(rIn.value, 10) : null;
     if (!reps) { toast('How many reps did you get?'); if (rIn) rIn.focus(); s.log[i].running = true; return; }
-    s.log[i].reps = reps;
+    s.log[i].reps = reps; s.log[i].clusters = [reps];
     if (wIn && wIn.value !== '') s.log[i].weight = L.fromInput(wIn.value, cfg.units);
+    if (s.superEx) {
+      var brIn = document.querySelector('#s-today input[data-set="' + i + '"][data-f="breps"]');
+      var bwIn = document.querySelector('#s-today input[data-set="' + i + '"][data-f="bweight"]');
+      s.log[i].b = { reps: brIn && brIn.value !== '' ? parseInt(brIn.value, 10) : null, weight: bwIn && bwIn.value !== '' ? L.fromInput(bwIn.value, cfg.units) : null };
+    }
     s.log[i].durSec = (Date.now() - s.log[i].startMs) / 1000;
     s.log[i].endClock = nowClock();
     s.log[i].done = true; s.log[i].running = false;
-    // carry the confirmed weight forward to the next set
-    for (var j = i + 1; j < s.log.length; j++) if (!s.log[j].done) s.log[j].weight = s.log[i].weight;
+    for (var j = i + 1; j < s.log.length; j++) if (!s.log[j].done) { s.log[j].weight = s.log[i].weight; if (s.superEx && s.log[i].b) s.log[j].b = { reps: null, weight: s.log[i].b.weight }; }
     var allDone = s.log.every(function (y) { return y.done; });
     SESSION._rest = allDone ? null : { sec: s.ex.restSec, left: s.ex.restSec };
     renderActive();
-    if (!allDone) toast('Logged. Rest ~' + s.ex.restSec + 's, then Start set ' + (i + 2));
+    if (!allDone) toast('Logged ✓ Rest ~' + s.ex.restSec + 's, then start the next set');
   }
   function startRestUI(rest) {
     clearInterval(restInt); rest.left = rest.sec;
@@ -295,14 +330,43 @@
   function swapTo(exId) {
     var s = SESSION.built.slots[SESSION.idx];
     s.exId = exId; s.ex = EX[exId]; s.alt = L.altsForExercise(exId, EX); s.machineId = (machinesForEx(exId)[0] || {}).id || null; s.showHow = false;
-    s.pre = L.prescribe(s.ex, lifts[exId]);
-    s.log = []; for (var i = 0; i < s.sets; i++) s.log.push({ reps: null, weight: s.pre.weight, done: false, running: false, startMs: 0, durSec: 0, endClock: '' });
+    s.pre = L.prescribe(s.ex, lifts[exId]); s.superEx = null;
+    s.log = freshLog(s.sets, s.pre.weight);
     SESSION._rest = null; renderActive();
   }
   function requeue() {
     var b = SESSION.built;
     if (SESSION.idx >= b.slots.length - 1) { toast('Last exercise — nothing to requeue after'); return; }
     b.slots.push(b.slots.splice(SESSION.idx, 1)[0]); SESSION._rest = null; renderActive(); toast('Moved to the end — come back to it');
+  }
+  function addWarmup() {
+    var s = SESSION.built.slots[SESSION.idx];
+    var w = s.pre.weight != null ? Math.max(0, Math.round(s.pre.weight * 0.5)) : null;
+    s.log.unshift(newSet(w, 'warmup')); SESSION._rest = null; renderActive();
+    toast('Warm-up set added (lighter) — it won\'t count toward your volume');
+  }
+  function openSuperset() {
+    var s = SESSION.built.slots[SESSION.idx]; var opts = [];
+    SESSION.built.slots.forEach(function (o) { if (o.exId !== s.exId && opts.indexOf(o.exId) < 0) opts.push(o.exId); });
+    L.altsForExercise(s.exId, EX).slice(0, 3).forEach(function (id) { if (opts.indexOf(id) < 0) opts.push(id); });
+    var panel = '<div class="panel fade" id="altpanel"><div class="tinfo"><div class="lab">Superset with — do both back-to-back as one set</div></div>' +
+      opts.map(function (id) { var m = machinesForEx(id)[0]; return '<div class="weekrow" data-action="pick-super" data-ex="' + id + '"><span class="nm" style="font-size:15px">' + esc(EX[id].name) + '</span><span class="mus">' + esc(m ? m.name : EX[id].equipType) + '</span></div>'; }).join('') +
+      (s.superEx ? '<div class="weekrow" data-action="pick-super" data-ex="" style="border-style:dashed"><span class="nm" style="font-size:15px;color:var(--steel)">Remove superset</span></div>' : '') +
+      '<div style="height:8px"></div><button class="cta sub" data-action="close-alt">Never mind</button></div>';
+    document.getElementById('s-today').insertAdjacentHTML('afterbegin', panel); window.scrollTo(0, 0);
+  }
+  function pickSuper(exId) {
+    var p = document.getElementById('altpanel'); if (p) p.remove();
+    var s = SESSION.built.slots[SESSION.idx]; s.superEx = exId || null; renderActive();
+    if (exId) toast('Superset added — log both movements in each set');
+  }
+  function rpAdd(i) {
+    var s = SESSION.built.slots[SESSION.idx], x = s.log[i];
+    var inp = document.querySelector('[data-rp="' + i + '"]'); var extra = inp && inp.value !== '' ? parseInt(inp.value, 10) : 0;
+    if (!extra || extra < 1) { toast('Enter how many more reps you did'); return; }
+    if (!x.clusters || !x.clusters.length) x.clusters = [x.reps];
+    x.clusters.push(extra); x.reps = x.clusters.reduce(function (a, b) { return a + b; }, 0); x.rp = false;
+    renderActive(); toast('Rest-pause added — that set is now ' + x.clusters.join('+') + ' = ' + x.reps + ' reps');
   }
   function nextSlot() { if (SESSION.idx + 1 < SESSION.built.slots.length) { SESSION.idx++; SESSION._rest = null; renderActive(); window.scrollTo(0, 0); } else { SESSION.phase = 'summary'; renderSummary(); } }
 
@@ -332,8 +396,13 @@
     var date = todayISO();
     var entry = { day: SESSION.built.dayId, mode: SESSION.mode, budgetMin: SESSION.budgetMin || null, exercises: [], felt: SESSION.felt || null, note: SESSION.note || '' };
     SESSION.built.slots.forEach(function (s) {
-      var sets = s.log.filter(function (x) { return x.done && x.reps > 0; }).map(function (x) { return { reps: x.reps, weight: x.weight || 0, durSec: Math.round(x.durSec), endClock: x.endClock }; });
+      var work = s.log.filter(function (x) { return x.kind !== 'warmup' && x.done && x.reps > 0; });
+      var sets = work.map(function (x) { return { reps: x.reps, weight: x.weight || 0, durSec: Math.round(x.durSec), endClock: x.endClock, clusters: (x.clusters && x.clusters.length > 1) ? x.clusters : undefined }; });
       if (sets.length) { entry.exercises.push({ exId: s.exId, machineId: s.machineId, sets: sets }); lifts[s.exId] = L.updateLift(lifts[s.exId], s.ex, sets); }
+      if (s.superEx) {
+        var bsets = work.filter(function (x) { return x.b && x.b.reps > 0; }).map(function (x) { return { reps: x.b.reps, weight: x.b.weight || 0 }; });
+        if (bsets.length) { entry.exercises.push({ exId: s.superEx, sets: bsets, superOf: s.exId }); lifts[s.superEx] = L.updateLift(lifts[s.superEx], EX[s.superEx], bsets); }
+      }
     });
     log[date] = entry; set('muscles-log', log); set('muscles-lifts', lifts);
     plan.cycleIndex = L.nextIndex(PROGRAM, plan.cycleIndex); plan.sessionCount++; plan.calibrated = true; set('muscles-plan', plan);
@@ -504,6 +573,11 @@
       case 'start-set': startSet(+d('data-set')); break;
       case 'end-set': endSet(+d('data-set')); break;
       case 'busy': busy(); break;
+      case 'add-warmup': addWarmup(); break;
+      case 'superset': openSuperset(); break;
+      case 'pick-super': pickSuper(d('data-ex')); break;
+      case 'rp-open': { var so = SESSION.built.slots[SESSION.idx]; so.log[+d('data-set')].rp = true; renderActive(); break; }
+      case 'rp-add': rpAdd(+d('data-set')); break;
       case 'close-alt': { var p = document.getElementById('altpanel'); if (p) p.remove(); break; }
       case 'swap': { var pp = document.getElementById('altpanel'); if (pp) pp.remove(); swapTo(d('data-ex')); break; }
       case 'requeue': { var q = document.getElementById('altpanel'); if (q) q.remove(); requeue(); break; }
