@@ -164,13 +164,27 @@
       case 'legmachine': return '<rect x="-20" y="-44" width="8" height="46" rx="3" fill="' + APfill + '" stroke="' + AP + '"/><rect x="-18" y="2" width="30" height="7" rx="3" fill="' + APfill + '" stroke="' + AP + '"/>' +
         '<circle cx="30" cy="44" r="6" fill="' + AP2 + '"/>';
       case 'tread': return '<rect x="-30" y="50" width="70" height="9" rx="4" fill="' + APfill + '" stroke="' + AP + '"/><line x1="40" y1="52" x2="48" y2="-30" stroke="' + AP + '" stroke-width="3"/><rect x="40" y="-40" width="16" height="12" rx="2" fill="' + AP2 + '"/>';
-      case 'floor': return '<line x1="-30" y1="52" x2="46" y2="52" stroke="' + AP + '" stroke-width="2"/>';
+      case 'floor': return '<line x1="-34" y1="52" x2="50" y2="52" stroke="' + AP + '" stroke-width="2"/>';
+      case 'benchflat': return '<rect x="-46" y="2" width="58" height="9" rx="4" fill="' + APfill + '" stroke="' + AP + '"/><rect x="-42" y="11" width="6" height="20" fill="' + APfill + '" stroke="' + AP + '"/><rect x="6" y="11" width="6" height="20" fill="' + APfill + '" stroke="' + AP + '"/>';
+      case 'benchincline': return '<g transform="rotate(-32 0 4)"><rect x="-8" y="-44" width="12" height="52" rx="5" fill="' + APfill + '" stroke="' + AP + '"/></g><rect x="-16" y="6" width="30" height="8" rx="3" fill="' + APfill + '" stroke="' + AP + '"/>';
+      case 'preacher': return '<rect x="-18" y="2" width="30" height="7" rx="3" fill="' + APfill + '" stroke="' + AP + '"/><g transform="rotate(22 10 -14)"><rect x="4" y="-28" width="11" height="26" rx="5" fill="' + APfill + '" stroke="' + AP + '"/></g>';
+      case 'benchsupport': return '<rect x="-32" y="8" width="50" height="9" rx="4" fill="' + APfill + '" stroke="' + AP + '"/><rect x="-28" y="17" width="6" height="16" fill="' + APfill + '" stroke="' + AP + '"/><rect x="10" y="17" width="6" height="16" fill="' + APfill + '" stroke="' + AP + '"/>';
+      case 'hang': return '<rect x="-18" y="-74" width="52" height="6" rx="3" fill="' + AP2 + '"/><line x1="-12" y1="-74" x2="-12" y2="-84" stroke="' + AP + '" stroke-width="3"/><line x1="28" y1="-74" x2="28" y2="-84" stroke="' + AP + '" stroke-width="3"/>';
       default: return '';
     }
   }
 
+  // the implement held in the hand (dumbbell / barbell / cable-or-machine handle)
+  function implSVG(impl, ghost) {
+    if (ghost || !impl || impl === 'none') return '';
+    var mc = '#6A747E', pc = '#464F57';
+    if (impl === 'db') return '<g transform="translate(0,18)"><rect x="-7" y="-2.5" width="14" height="5" rx="2" fill="' + mc + '"/><rect x="-10" y="-5" width="4.5" height="10" rx="1.5" fill="' + pc + '"/><rect x="5.5" y="-5" width="4.5" height="10" rx="1.5" fill="' + pc + '"/></g>';
+    if (impl === 'bar') return '<g transform="translate(0,18)"><rect x="-21" y="-2" width="42" height="4" rx="2" fill="' + mc + '"/><circle cx="-20" cy="0" r="4.5" fill="' + pc + '"/><circle cx="20" cy="0" r="4.5" fill="' + pc + '"/></g>';
+    return '<g transform="translate(0,18)"><rect x="-2.6" y="-6" width="5.2" height="12" rx="2.6" fill="' + mc + '"/></g>'; // machine / cable handle
+  }
+
   // ghost=true renders a faint static END-position (shows the full range of motion)
-  function figure(p, right, ghost) {
+  function figure(p, right, ghost, impl) {
     var still = ghost ? '#333B43' : '#39424A', hot = ghost ? '#333B43' : (right ? '#31C85E' : '#E4585C'), body = ghost ? '#333B43' : '#333C44', d = p.dur;
     var fr = ghost ? 1 : 0;
     function A(j) { return ghost ? '' : anim(p[j][0], p[j][1], d); }
@@ -179,7 +193,7 @@
     var uarmC = col('uarm'), farmC = col('farm'), thighC = col('thigh'), shinC = col('shin');
     var torsoHot = !ghost && moving(p.torso[0], p.torso[1]);
     var arm = '<g transform="translate(0,-34)"><g transform="rotate(' + p.uarm[fr] + ')">' + A('uarm') + seg(20, 10, uarmC, gl('uarm')) +
-      '<circle cx="0" cy="20" r="3" fill="' + uarmC + '"/><g transform="translate(0,20)"><g transform="rotate(' + p.farm[fr] + ')">' + A('farm') + seg(18, 8, farmC, gl('farm')) + '<circle cx="0" cy="18" r="5" fill="' + farmC + '"/></g></g></g></g>';
+      '<circle cx="0" cy="20" r="3" fill="' + uarmC + '"/><g transform="translate(0,20)"><g transform="rotate(' + p.farm[fr] + ')">' + A('farm') + seg(18, 8, farmC, gl('farm')) + '<circle cx="0" cy="18" r="5" fill="' + farmC + '"/>' + implSVG(impl, ghost) + '</g></g></g></g>';
     var torso = '<g transform="rotate(' + p.torso[fr] + ')">' + A('torso') +
       '<rect x="-11" y="-40" width="22" height="40" rx="10" fill="' + (torsoHot ? hot : body) + '"' + (torsoHot ? ' filter="url(#hglow)"' : '') + '/>' +
       '<circle cx="0" cy="-51" r="8.5" fill="' + body + '"/><rect x="-4" y="-45" width="8" height="8" fill="' + body + '"/>' + arm + '</g>';
@@ -190,9 +204,56 @@
     return ghost ? '<g opacity="0.28">' + g + '</g>' : g;
   }
 
-  function howtoSVG(pattern, variant) {
+  // per-exercise setup: context (apparatus) + implement + posture, from equipType/id.
+  // Same movement pattern, different equipment/body position => a different-looking demo.
+  function deriveMove(ex) {
+    var pat = ex.pattern, eq = ex.equipType, id = ex.id;
+    var m = { ctx: CTX[pat] || 'stand', impl: 'none', torso: null, legs: null };
+    if (eq === 'dumbbell') m.impl = 'db';
+    else if (eq === 'barbell' || eq === 'smith') m.impl = 'bar';
+    else if (eq === 'cable' || eq === 'selectorized' || eq === 'plate') m.impl = 'machine';
+    var freeBar = (eq === 'dumbbell' || eq === 'barbell' || eq === 'smith');
+    var lieLegs = { thigh: [-28, -28], shin: [64, 64] };
+    if (pat === 'horizontal_press') {
+      if (freeBar) { m.ctx = 'benchflat'; m.torso = -80; m.legs = lieLegs; }
+      else if (eq === 'bodyweight') { m.ctx = 'floor'; m.torso = -84; m.legs = { thigh: [-90, -90], shin: [0, 0] }; }
+      else m.ctx = 'seat';
+    } else if (pat === 'incline_press') {
+      if (freeBar) { m.ctx = 'benchincline'; m.torso = -44; m.legs = { thigh: [-34, -34], shin: [62, 62] }; }
+      else m.ctx = 'seat';
+    } else if (pat === 'vertical_press') { m.ctx = freeBar ? 'stand' : 'seat'; }
+    else if (pat === 'vertical_pull') { if (eq === 'bodyweight') { m.ctx = 'hang'; m.impl = 'none'; m.legs = { thigh: [3, 3], shin: [3, 3] }; } else { m.ctx = 'pulldown'; m.impl = 'bar'; } }
+    else if (pat === 'row') { if (eq === 'dumbbell') { m.ctx = 'benchsupport'; m.torso = -66; m.legs = { thigh: [-40, -40], shin: [42, 42] }; } else if (eq === 'cable') m.ctx = 'cable'; else m.ctx = 'seat'; }
+    else if (pat === 'fly' || pat === 'rear_fly') { m.ctx = eq === 'cable' ? 'cable' : 'seat'; }
+    else if (pat === 'curl') { if (id === 'sel_arm_curl') { m.ctx = 'preacher'; } else if (id === 'incline_db_curl') { m.ctx = 'benchincline'; m.torso = -46; m.impl = 'db'; m.legs = { thigh: [-34, -34], shin: [62, 62] }; } else if (eq === 'cable') m.ctx = 'cable'; else m.ctx = 'stand'; }
+    else if (pat === 'tri_ext') { if (eq === 'dumbbell') { m.ctx = 'benchflat'; m.torso = -80; m.impl = 'db'; m.legs = lieLegs; } else m.ctx = 'cable'; }
+    else if (pat === 'tri_press') { m.ctx = 'stand'; }
+    else if (pat === 'squat') { m.ctx = freeBar && eq !== 'dumbbell' ? 'squat' : 'stand'; }
+    else if (pat === 'hinge') { if (id === 'smith_hip_thrust') { m.ctx = 'benchflat'; m.torso = -78; } else m.ctx = (eq === 'smith' || eq === 'barbell') ? 'squat' : (eq === 'cable' ? 'cable' : 'stand'); }
+    else if (pat === 'lunge') { m.ctx = 'stand'; }
+    else if (pat === 'leg_ext' || pat === 'leg_curl' || pat === 'abduction') { m.ctx = 'legmachine'; m.impl = 'none'; }
+    else if (pat === 'leg_press') { m.ctx = 'legpress'; m.impl = 'none'; }
+    else if (pat === 'calf') { m.ctx = 'stand'; m.impl = 'machine'; }
+    else if (pat === 'lateral') { m.ctx = 'stand'; }
+    else if (pat === 'shrug') { m.ctx = 'stand'; }
+    else if (pat === 'crunch') { m.ctx = id === 'cable_crunch' ? 'cable' : (id === 'ab_crunch_machine' ? 'seat' : 'floor'); m.impl = m.ctx === 'floor' ? 'none' : m.impl; }
+    else if (pat === 'rotation' || pat === 'antiext') { m.ctx = 'floor'; m.impl = 'none'; if (pat === 'antiext') { m.torso = -86; m.legs = { thigh: [-90, -90], shin: [0, 0] }; } }
+    else if (pat === 'cardio') { m.ctx = 'tread'; m.impl = 'none'; }
+    else if (pat === 'lat_iso') { m.ctx = 'cable'; }
+    return m;
+  }
+  function applyMove(base, move) {
+    var p = JSON.parse(JSON.stringify(base));
+    if (move.torso != null) { var d = p.torso[1] - p.torso[0]; p.torso = [move.torso, move.torso + d]; }
+    if (move.legs) { if (!moving(p.thigh[0], p.thigh[1])) p.thigh = move.legs.thigh.slice(); if (!moving(p.shin[0], p.shin[1])) p.shin = move.legs.shin.slice(); }
+    return p;
+  }
+
+  function howtoSVG(ex, variant) {
+    var pattern = (typeof ex === 'string') ? ex : ex.pattern;
+    var move = (typeof ex === 'object' && ex) ? deriveMove(ex) : { ctx: CTX[pattern] || 'stand', impl: 'none', torso: null, legs: null };
     var right = variant !== 'wrong';
-    var base = ANIM[pattern] || ANIM['default'];
+    var base = applyMove(ANIM[pattern] || ANIM['default'], move);
     var p = right ? base : badPose(base, WRONG[pattern] || 'half');
     var rootT = 'translate(70,96)', rootA = '';
     if (p.rootBob) rootA = '<animateTransform attributeName="transform" type="translate" values="70,96;70,88;70,88;70,96" keyTimes="0;0.42;0.6;1" dur="' + (p.dur * 1.2).toFixed(2) + 's" repeatCount="indefinite"/>';
@@ -201,8 +262,8 @@
       : '<g transform="translate(11,13)"><circle r="10" fill="#E4585C"/><path d="M-4 -4l8 8M4 -4l-8 8" stroke="#0E1113" stroke-width="2.6" stroke-linecap="round"/></g>';
     var defs = '<defs><filter id="hglow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
     return '<svg class="howto" viewBox="0 0 140 172" aria-label="how to perform this exercise">' + defs +
-      '<g transform="' + rootT + '">' + rootA + apparatus(CTX[pattern] || 'stand') +
-      figure(p, right, true) + figure(p, right) + (right ? arrow(p) : '') + '</g>' + badge + '</svg>';
+      '<g transform="' + rootT + '">' + rootA + apparatus(move.ctx) +
+      figure(p, right, true, move.impl) + figure(p, right, false, move.impl) + (right ? arrow(p) : '') + '</g>' + badge + '</svg>';
   }
 
   function steps(pattern) { return STEPS[pattern] || STEPS['default']; }

@@ -270,8 +270,8 @@
 
   function howPanel(ex) {
     var steps = HOWTO.steps(ex.pattern);
-    return '<div class="howwrap"><div class="howfig"><div class="howv">' + HOWTO.howtoSVG(ex.pattern, 'right') + '</div>' +
-      '<div class="howv hidden">' + HOWTO.howtoSVG(ex.pattern, 'wrong') + '</div>' +
+    return '<div class="howwrap"><div class="howfig"><div class="howv">' + HOWTO.howtoSVG(ex, 'right') + '</div>' +
+      '<div class="howv hidden">' + HOWTO.howtoSVG(ex, 'wrong') + '</div>' +
       '<div class="howtog"><button class="on" onclick="window.__howtog(this,0)">✓ Right</button><button onclick="window.__howtog(this,1)">✗ Wrong</button></div></div>' +
       '<div style="flex:1"><ol class="steps">' + steps.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ol>' +
       '<div class="howmiss"><b>Don\'t:</b> ' + esc(HOWTO.wrongLabel(ex.pattern)) + '.</div></div></div>';
