@@ -109,7 +109,7 @@ header{padding:calc(20px + env(safe-area-inset-top)) 0 6px}
 .picker .lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin:4px 0 8px}
 .machopts{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
 .macho{flex:0 0 auto;width:112px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel2)}
-.macho img{width:100%;height:74px;object-fit:cover;display:block}
+.macho img{width:100%;height:80px;object-fit:contain;display:block;background:var(--panel2)}
 .macho .nm{font-size:11px;padding:6px 7px;line-height:1.2}
 .macho.sel{border-color:var(--ember)}
 .macho.sel .nm{color:var(--ember)}
@@ -150,7 +150,7 @@ h2.sec{font-family:var(--disp);font-weight:600;font-size:24px;text-transform:upp
 .bp.on{background:var(--ember);border-color:var(--ember);color:#fff}
 .eqgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .eqcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.eqcard img{width:100%;height:120px;object-fit:cover;display:block;background:var(--panel2)}
+.eqcard img{width:100%;height:130px;object-fit:contain;display:block;background:var(--panel2)}
 .eqcard .b{padding:10px 11px}
 .eqcard .nm{font-family:var(--disp);font-weight:600;font-size:15px;text-transform:uppercase;line-height:1.1}
 .eqcard .ty{font-family:var(--mono);font-size:9.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
@@ -232,8 +232,9 @@ nav.tabs button.on svg{stroke:var(--ember)}
 .howbtn{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;background:transparent;
   border:1px solid var(--line);color:var(--steel);border-radius:8px;padding:8px 11px}
 .howwrap{border-top:1px solid var(--line);padding:14px;display:flex;gap:14px;align-items:flex-start}
-.howfig{width:120px;flex:0 0 auto;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
-.howto{width:120px;height:150px;display:block}
+.howwrap{align-items:stretch}
+.howfig{width:150px;flex:0 0 auto;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:2px}
+.howto{width:146px;height:184px;display:block}
 .steps{margin:0;padding:0;list-style:none;counter-reset:s;flex:1}
 .steps li{counter-increment:s;position:relative;padding:0 0 8px 26px;font-size:13px;color:var(--chalk)}
 .steps li::before{content:counter(s);position:absolute;left:0;top:-1px;width:18px;height:18px;border-radius:50%;

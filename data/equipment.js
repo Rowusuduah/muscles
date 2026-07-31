@@ -18,7 +18,7 @@
       cats: ['chest'], exerciseIds: ['pl_chest_press'], note: 'Plate-loaded flat press, each arm independent.' },
     { id: 'm_chest_press_sel', name: 'Chest Press (selectorized)', type: 'selectorized', photo: img(37), src: raw(37),
       cats: ['chest'], exerciseIds: ['sel_chest_press'], confirm: true },
-    { id: 'm_pec_deck', name: 'Pec Deck / Fly', type: 'selectorized', photo: img(38), src: raw(38),
+    { id: 'm_pec_deck', name: 'Pec Deck / Rear Delt', type: 'selectorized', photo: img(16), src: raw(16),
       cats: ['chest', 'shoulders'], exerciseIds: ['pec_deck', 'rear_delt_machine'], confirm: true,
       note: 'Doubles as reverse-fly for rear delts.' },
 
@@ -107,7 +107,6 @@
     { id: 'm_row_rear', name: 'Seated Row / Rear Delt', type: 'plate', photo: img(10), src: raw(10), cats: ['back', 'shoulders'], exerciseIds: ['pl_low_row', 'rear_delt_machine'], confirm: true },
     { id: 'm_high_row', name: 'High Row / Pulldown', type: 'selectorized', photo: img(14), src: raw(14), cats: ['back'], exerciseIds: ['lat_pulldown', 'pl_high_row'], confirm: true },
     { id: 'm_seated_curl2', name: 'Seated Leg Curl (plate)', type: 'plate', photo: img(15), src: raw(15), cats: ['legs'], exerciseIds: ['seated_leg_curl'], confirm: true },
-    { id: 'm_reardelt_pl', name: 'Rear Delt / Pec Deck (plate)', type: 'plate', photo: img(16), src: raw(16), cats: ['shoulders', 'chest'], exerciseIds: ['rear_delt_machine', 'pec_deck'], confirm: true },
     { id: 'm_rack2', name: 'Squat Rack / Smith', type: 'rack', photo: img(18), src: raw(18), cats: ['legs', 'chest'], exerciseIds: ['smith_squat', 'smith_bench', 'goblet_squat'], confirm: true },
     { id: 'm_legext_curl', name: 'Leg Extension / Curl', type: 'plate', photo: img(23), src: raw(23), cats: ['legs'], exerciseIds: ['leg_extension', 'seated_leg_curl'], confirm: true },
     { id: 'm_bench2', name: 'Adjustable Bench (2)', type: 'bench', photo: img(25), src: raw(25), cats: ['chest', 'arms'], exerciseIds: ['db_incline', 'db_bench', 'incline_db_curl'], confirm: true },

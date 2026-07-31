@@ -17,6 +17,7 @@
   var plan = get('muscles-plan', { cycleIndex: 0, sessionCount: 0, calibrated: false });
   var lifts = get('muscles-lifts', {});
   var log = get('muscles-log', {});
+  var eqNames = get('muscles-eqnames', {}); // user's corrected machine names
   if (!cfg.start) { cfg.start = todayISO(); set('muscles-config', cfg); }
   var SESSION = null, workInt = null, restInt = null;
 
@@ -29,6 +30,7 @@
   function fmtDur(sec) { sec = Math.round(sec); return sec < 60 ? sec + 's' : Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2); }
   function toast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('show'); }, 2600); }
   function machinesForEx(exId) { return EQUIPMENT.filter(function (e) { return (e.exerciseIds || []).indexOf(exId) >= 0; }); }
+  function nameOf(eq) { return eq ? (eqNames[eq.id] || eq.name) : ''; }
   function markFromMuscles(muscles, secondary) { var m = {}; (muscles || []).forEach(function (x) { m[x] = 'primary'; }); (secondary || []).forEach(function (x) { if (m[x] !== 'primary') m[x] = 'secondary'; }); return m; }
   function focusMark(focusMuscles, slots) {
     var mark = {}; (focusMuscles || []).forEach(function (m) { mark[m] = 'primary'; });
@@ -147,7 +149,7 @@
       pool.map(function (e) {
         var m = machinesForEx(e.id)[0]; var on = picked.indexOf(e.id) >= 0;
         var thumb = m && m.photo ? '<img class="exthumb" src="' + m.photo + '" onerror="this.style.visibility=\'hidden\'" alt="">' : '<div class="exthumb ph">?</div>';
-        return '<div class="exrow ' + (on ? 'on' : '') + '" data-action="toggle-ex" data-ex="' + e.id + '">' + thumb + '<div class="nm"><b>' + esc(e.name) + '</b><span>' + esc(e.primary.map(function (x) { return MU[x] ? MU[x].name : x; }).join(', ')) + (m ? ' · ' + esc(m.name) : '') + '</span></div><button class="add">' + (on ? '✓' : '+') + '</button></div>';
+        return '<div class="exrow ' + (on ? 'on' : '') + '" data-action="toggle-ex" data-ex="' + e.id + '">' + thumb + '<div class="nm"><b>' + esc(e.name) + '</b><span>' + esc(e.primary.map(function (x) { return MU[x] ? MU[x].name : x; }).join(', ')) + (m ? ' · ' + esc(nameOf(m)) : '') + '</span></div><button class="add">' + (on ? '✓' : '+') + '</button></div>';
       }).join('') +
       '<div style="height:12px"></div><button class="cta" data-action="partner-time">Next → set the time</button>';
   }
@@ -192,7 +194,7 @@
     var ex = s.ex;
 
     var picker = machines.length ? '<div class="picker"><div class="lab">Pick your machine</div><div class="machopts">' +
-      machines.map(function (m) { return '<div class="macho ' + (m.id === s.machineId ? 'sel' : '') + '" data-action="pick-machine" data-machine="' + m.id + '"><img src="' + m.photo + '" onerror="this.style.visibility=\'hidden\'" alt=""><div class="nm">' + esc(m.name) + '</div></div>'; }).join('') + '</div>' +
+      machines.map(function (m) { return '<div class="macho ' + (m.id === s.machineId ? 'sel' : '') + '" data-action="pick-machine" data-machine="' + m.id + '"><img src="' + m.photo + '" onerror="this.style.visibility=\'hidden\'" alt=""><div class="nm">' + esc(nameOf(m)) + '</div></div>'; }).join('') + '</div>' +
       multiUse(machSel, s) + '</div>' : '';
 
     var tgt = s.pre.mode === 'calibrate' ? 'find your weight' : wLbl(s.pre.weight);
@@ -445,14 +447,16 @@
       '<div class="bodyparts">' + cats.map(function (c) { return '<button class="bp ' + (c === trainFilter ? 'on' : '') + '" data-action="train-filter" data-cat="' + c + '">' + c + '</button>'; }).join('') + '</div>' +
       '<div class="eqgrid">' + list.map(function (e) {
         var exs = (e.exerciseIds || []).map(function (id) { return EX[id] ? EX[id].name : id; }).slice(0, 3).join(', ');
-        return '<div class="eqcard" data-action="open-eq" data-eq="' + e.id + '"><img src="' + e.photo + '" onerror="this.style.visibility=\'hidden\'" alt=""><div class="b"><div class="nm">' + esc(e.name) + '</div><div class="ty">' + esc(e.type) + (e.confirm ? ' · verify' : '') + '</div><div class="ex">' + esc(exs || '—') + '</div></div></div>';
+        return '<div class="eqcard" data-action="open-eq" data-eq="' + e.id + '"><img src="' + e.photo + '" onerror="this.style.visibility=\'hidden\'" alt=""><div class="b"><div class="nm">' + esc(nameOf(e)) + '</div><div class="ty">' + esc(e.type) + (e.confirm ? ' · verify' : '') + '</div><div class="ex">' + esc(exs || '—') + '</div></div></div>';
       }).join('') + '</div>';
   }
   function openEquipment(id) {
     var e = EQ[id]; if (!e) return; var el = document.getElementById('s-train');
     el.innerHTML = '<button class="mini" data-action="train-back">‹ Back</button>' +
-      '<h2 class="sec" style="margin-top:12px">' + esc(e.name) + '</h2>' +
-      '<img src="' + e.photo + '" onerror="this.style.display=\'none\'" style="width:100%;height:200px;object-fit:cover;border-radius:14px;border:1px solid var(--line);margin-bottom:12px" alt="">' +
+      '<h2 class="sec" style="margin-top:12px">' + esc(nameOf(e)) + '</h2>' +
+      '<img src="' + e.photo + '" onerror="this.style.display=\'none\'" style="width:100%;height:260px;object-fit:contain;background:var(--panel2);border-radius:14px;border:1px solid var(--line);margin-bottom:12px" alt="">' +
+      '<div class="panel"><div class="lab" style="font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase">Wrong name? Fix it — saved on your device</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px"><input class="search" id="eqrename" style="margin:0" value="' + esc(nameOf(e)) + '"><button class="mini" data-action="save-eqname" data-eq="' + e.id + '" style="flex:0 0 auto">Save</button></div></div>' +
       (e.note ? '<p class="lede">' + esc(e.note) + '</p>' : '') +
       ((e.exerciseIds || []).length > 1 ? '<p class="lede">This machine does <b>' + e.exerciseIds.length + ' exercises</b> — here\'s each, with how to do it:</p>' : '') +
       (e.confirm ? '<div class="panel"><p class="sub" style="margin:0">📸 <b>Verify this one:</b> tell me if the photo matches the name and I\'ll correct it.</p></div>' : '') +
@@ -589,6 +593,7 @@
       case 'log-cardio': saveCardio(); break;
       case 'train-filter': trainFilter = d('data-cat'); renderTrain(); break;
       case 'open-eq': openEquipment(d('data-eq')); break;
+      case 'save-eqname': { var v = ((document.getElementById('eqrename') || {}).value || '').trim(); var eid = d('data-eq'); if (v) eqNames[eid] = v; else delete eqNames[eid]; set('muscles-eqnames', eqNames); openEquipment(eid); toast('Name saved ✓'); break; }
       case 'train-back': renderTrain(); break;
       case 'cal-prev': calMonth.m--; if (calMonth.m < 0) { calMonth.m = 11; calMonth.y--; } renderHistory(); break;
       case 'cal-next': calMonth.m++; if (calMonth.m > 11) { calMonth.m = 0; calMonth.y++; } renderHistory(); break;

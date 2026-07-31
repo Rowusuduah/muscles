@@ -9,7 +9,7 @@ const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const ROOT = 'E:/gYM';
 const OUTDIR = ROOT + '/assets/equipment';
 const TMP = ROOT + '/tools/_convert.html';
-const W = 880, H = 660, Q = 0.82;
+const MAX = 1000, Q = 0.82;
 if (!existsSync(OUTDIR)) mkdirSync(OUTDIR, { recursive: true });
 
 // which photo numbers to convert: those referenced in equipment.js (fallback 1..51)
@@ -27,14 +27,15 @@ const items = nums.map((n) => ({
   src: 'file:///' + encodeURI((n === 1 ? ROOT + '/GYM/Gym equipment.jpeg' : ROOT + '/GYM/Gym equipment ' + n + '.jpeg'))
 })).filter((it) => existsSync(decodeURIComponent(it.src.replace('file:///', ''))));
 
-const html = `<!doctype html><meta charset=utf-8><canvas id=c width=${W} height=${H}></canvas><script>
-const items=${JSON.stringify(items)}; const W=${W},H=${H},Q=${Q};
+const html = `<!doctype html><meta charset=utf-8><canvas id=c></canvas><script>
+const items=${JSON.stringify(items)}; const MAX=${MAX}, Q=${Q};
 window.RESULTS=[]; window.DONE=false;
 const cv=document.getElementById('c'), cx=cv.getContext('2d');
 function one(it){return new Promise(res=>{const img=new Image();img.onload=function(){
-  const s=Math.max(W/img.width,H/img.height); const dw=img.width*s, dh=img.height*s;
-  cx.fillStyle='#1A1E22';cx.fillRect(0,0,W,H);
-  cx.drawImage(img,(W-dw)/2,(H-dh)/2,dw,dh);
+  // preserve the whole photo (no crop) — just downscale to fit MAX on the long side
+  const s=Math.min(MAX/img.width, MAX/img.height, 1);
+  const dw=Math.max(1,Math.round(img.width*s)), dh=Math.max(1,Math.round(img.height*s));
+  cv.width=dw; cv.height=dh; cx.clearRect(0,0,dw,dh); cx.drawImage(img,0,0,dw,dh);
   let url=''; try{url=cv.toDataURL('image/webp',Q);}catch(e){url='';}
   window.RESULTS.push({n:it.n,url:url}); img.src=''; res();
 };img.onerror=function(){window.RESULTS.push({n:it.n,url:''});res();};img.src=it.src;});}

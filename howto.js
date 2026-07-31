@@ -91,8 +91,37 @@
   };
 
   function moving(a, b) { return Math.abs(a - b) > 0.5; }
-  function anim(a, b, dur) { if (!moving(a, b)) return ''; return '<animateTransform attributeName="transform" attributeType="XML" type="rotate" values="' + a + ';' + b + ';' + a + '" keyTimes="0;0.5;1" dur="' + dur + 's" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.2 1;0.42 0 0.2 1"/>'; }
-  function cap(len, w, col) { return '<line x1="0" y1="0" x2="0" y2="' + len + '" stroke="' + col + '" stroke-width="' + w + '" stroke-linecap="round"/>'; }
+  // slower, with a clear pause at the end of each rep so the range is obvious
+  function anim(a, b, dur) {
+    if (!moving(a, b)) return '';
+    var D = (dur * 1.2).toFixed(2);
+    return '<animateTransform attributeName="transform" attributeType="XML" type="rotate" values="' + a + ';' + b + ';' + b + ';' + a + '" keyTimes="0;0.42;0.6;1" dur="' + D + 's" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.2 1;0 0 1 1;0.4 0 0.2 1"/>';
+  }
+  function seg(len, w, col, glow) { return '<line x1="0" y1="0" x2="0" y2="' + len + '" stroke="' + col + '" stroke-width="' + w + '" stroke-linecap="round"' + (glow ? ' filter="url(#hglow)"' : '') + '/>'; }
+  function rot(x, y, deg) { var r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r); return { x: x * c - y * s, y: x * s + y * c }; }
+  // the point that traces the movement (hand / foot / head), at phase 0 (start) or 1 (end)
+  function trackPoint(p, ph) {
+    var t = p.torso[ph];
+    if (moving(p.uarm[0], p.uarm[1]) || moving(p.farm[0], p.farm[1])) {
+      var s0 = rot(0, -34, t), u = rot(0, 20, t + p.uarm[ph]), f = rot(0, 18, t + p.uarm[ph] + p.farm[ph]);
+      return { x: s0.x + u.x + f.x, y: s0.y + u.y + f.y };
+    }
+    if (moving(p.thigh[0], p.thigh[1]) || moving(p.shin[0], p.shin[1])) {
+      var th = rot(0, 24, p.thigh[ph]), sh = rot(0, 24, p.thigh[ph] + p.shin[ph]);
+      return { x: th.x + sh.x + 11, y: th.y + sh.y + 24 };
+    }
+    return rot(0, -51, t);
+  }
+  // green dashed arrow from start to end of the movement, animated
+  function arrow(p) {
+    var A = trackPoint(p, 0), B = trackPoint(p, 1);
+    var dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy);
+    if (len < 12) return '';
+    var mx = (A.x + B.x) / 2 - dy * 0.16, my = (A.y + B.y) / 2 + dx * 0.16;
+    var ang = Math.atan2(B.y - my, B.x - mx) * 180 / Math.PI;
+    return '<g><path d="M' + A.x.toFixed(1) + ' ' + A.y.toFixed(1) + ' Q' + mx.toFixed(1) + ' ' + my.toFixed(1) + ' ' + B.x.toFixed(1) + ' ' + B.y.toFixed(1) + '" stroke="#31C85E" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-dasharray="1 5"><animate attributeName="stroke-dashoffset" values="12;0" dur="0.9s" repeatCount="indefinite"/></path>' +
+      '<g transform="translate(' + B.x.toFixed(1) + ',' + B.y.toFixed(1) + ') rotate(' + ang.toFixed(1) + ')"><path d="M0 0 L-8 -5 L-8 5 Z" fill="#31C85E"/></g></g>';
+  }
 
   // build a "wrong" pose from a good one
   function badPose(p, kind) {
@@ -140,20 +169,25 @@
     }
   }
 
-  function figure(p, right) {
-    var still = '#39424A', hot = right ? '#31C85E' : '#E4585C', body = '#333C44', d = p.dur;
-    function col(a) { return moving(a[0], a[1]) ? hot : still; }
-    var uarmC = col(p.uarm), farmC = col(p.farm), thighC = col(p.thigh), shinC = col(p.shin);
-    var torsoHot = moving(p.torso[0], p.torso[1]);
-    var arm = '<g transform="translate(0,-34)"><g transform="rotate(' + p.uarm[0] + ')">' + anim(p.uarm[0], p.uarm[1], d) + cap(20, 10, uarmC) +
-      '<circle cx="0" cy="20" r="3" fill="' + uarmC + '"/><g transform="translate(0,20)"><g transform="rotate(' + p.farm[0] + ')">' + anim(p.farm[0], p.farm[1], d) + cap(18, 8, farmC) + '<circle cx="0" cy="18" r="5" fill="' + farmC + '"/></g></g></g></g>';
-    var torso = '<g transform="rotate(' + p.torso[0] + ')">' + anim(p.torso[0], p.torso[1], d) +
-      '<rect x="-11" y="-40" width="22" height="40" rx="10" fill="' + (torsoHot ? hot : body) + '"/>' +
+  // ghost=true renders a faint static END-position (shows the full range of motion)
+  function figure(p, right, ghost) {
+    var still = ghost ? '#333B43' : '#39424A', hot = ghost ? '#333B43' : (right ? '#31C85E' : '#E4585C'), body = ghost ? '#333B43' : '#333C44', d = p.dur;
+    var fr = ghost ? 1 : 0;
+    function A(j) { return ghost ? '' : anim(p[j][0], p[j][1], d); }
+    function col(j) { return (!ghost && moving(p[j][0], p[j][1])) ? hot : still; }
+    function gl(j) { return !ghost && moving(p[j][0], p[j][1]); }
+    var uarmC = col('uarm'), farmC = col('farm'), thighC = col('thigh'), shinC = col('shin');
+    var torsoHot = !ghost && moving(p.torso[0], p.torso[1]);
+    var arm = '<g transform="translate(0,-34)"><g transform="rotate(' + p.uarm[fr] + ')">' + A('uarm') + seg(20, 10, uarmC, gl('uarm')) +
+      '<circle cx="0" cy="20" r="3" fill="' + uarmC + '"/><g transform="translate(0,20)"><g transform="rotate(' + p.farm[fr] + ')">' + A('farm') + seg(18, 8, farmC, gl('farm')) + '<circle cx="0" cy="18" r="5" fill="' + farmC + '"/></g></g></g></g>';
+    var torso = '<g transform="rotate(' + p.torso[fr] + ')">' + A('torso') +
+      '<rect x="-11" y="-40" width="22" height="40" rx="10" fill="' + (torsoHot ? hot : body) + '"' + (torsoHot ? ' filter="url(#hglow)"' : '') + '/>' +
       '<circle cx="0" cy="-51" r="8.5" fill="' + body + '"/><rect x="-4" y="-45" width="8" height="8" fill="' + body + '"/>' + arm + '</g>';
-    var leg = '<g transform="rotate(' + p.thigh[0] + ')">' + anim(p.thigh[0], p.thigh[1], d) + cap(24, 12, thighC) +
-      '<circle cx="0" cy="24" r="4" fill="' + thighC + '"/><g transform="translate(0,24)"><g transform="rotate(' + p.shin[0] + ')">' + anim(p.shin[0], p.shin[1], d) + cap(24, 10, shinC) + '<line x1="0" y1="24" x2="11" y2="24" stroke="' + shinC + '" stroke-width="7" stroke-linecap="round"/></g></g></g>';
+    var leg = '<g transform="rotate(' + p.thigh[fr] + ')">' + A('thigh') + seg(24, 12, thighC, gl('thigh')) +
+      '<circle cx="0" cy="24" r="4" fill="' + thighC + '"/><g transform="translate(0,24)"><g transform="rotate(' + p.shin[fr] + ')">' + A('shin') + seg(24, 10, shinC, gl('shin')) + '<line x1="0" y1="24" x2="11" y2="24" stroke="' + shinC + '" stroke-width="7" stroke-linecap="round"/></g></g></g>';
     var hips = '<rect x="-11" y="-3" width="22" height="10" rx="5" fill="' + body + '"/>';
-    return leg + hips + torso;
+    var g = leg + hips + torso;
+    return ghost ? '<g opacity="0.28">' + g + '</g>' : g;
   }
 
   function howtoSVG(pattern, variant) {
@@ -161,12 +195,14 @@
     var base = ANIM[pattern] || ANIM['default'];
     var p = right ? base : badPose(base, WRONG[pattern] || 'half');
     var rootT = 'translate(70,96)', rootA = '';
-    if (p.rootBob) rootA = '<animateTransform attributeName="transform" type="translate" values="70,96;70,88;70,96" keyTimes="0;0.5;1" dur="' + p.dur + 's" repeatCount="indefinite"/>';
+    if (p.rootBob) rootA = '<animateTransform attributeName="transform" type="translate" values="70,96;70,88;70,88;70,96" keyTimes="0;0.42;0.6;1" dur="' + (p.dur * 1.2).toFixed(2) + 's" repeatCount="indefinite"/>';
     var badge = right
-      ? '<g transform="translate(10,12)"><circle r="9" fill="#31C85E"/><path d="M-4 0l3 3 5-6" stroke="#0E1113" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'
-      : '<g transform="translate(10,12)"><circle r="9" fill="#E4585C"/><path d="M-3.5 -3.5l7 7M3.5 -3.5l-7 7" stroke="#0E1113" stroke-width="2.4" stroke-linecap="round"/></g>';
-    return '<svg class="howto" viewBox="0 0 140 170" aria-label="how to perform this exercise">' +
-      '<g transform="' + rootT + '">' + rootA + apparatus(CTX[pattern] || 'stand') + figure(p, right) + '</g>' + badge + '</svg>';
+      ? '<g transform="translate(11,13)"><circle r="10" fill="#31C85E"/><path d="M-4.5 0l3 3 6-7" stroke="#0E1113" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'
+      : '<g transform="translate(11,13)"><circle r="10" fill="#E4585C"/><path d="M-4 -4l8 8M4 -4l-8 8" stroke="#0E1113" stroke-width="2.6" stroke-linecap="round"/></g>';
+    var defs = '<defs><filter id="hglow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
+    return '<svg class="howto" viewBox="0 0 140 172" aria-label="how to perform this exercise">' + defs +
+      '<g transform="' + rootT + '">' + rootA + apparatus(CTX[pattern] || 'stand') +
+      figure(p, right, true) + figure(p, right) + (right ? arrow(p) : '') + '</g>' + badge + '</svg>';
   }
 
   function steps(pattern) { return STEPS[pattern] || STEPS['default']; }
