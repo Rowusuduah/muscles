@@ -37,9 +37,11 @@
     abduction: pose({ thigh: [-78, -92] }, { shin: [78, 78] }, 2.0),
     cardio: pose({ uarm: [-28, 18], farm: [-40, -40], thigh: [22, -30], shin: [34, 72] }, {}, 1.0),
     antiext: pose({ torso: [0, 0] }, STAND, 3.0),
+    leghang: pose({ uarm: [-172, -172], farm: [-4, -4], thigh: [-2, -82], shin: [-6, -34] }, {}, 2.6),
+    pushup: pose({ torso: [92, 92], uarm: [-92, -92], farm: [-6, -6] }, { thigh: [-92, -92], shin: [-2, -2] }, 2.0),
     'default': pose({ uarm: [-8, -26] }, STAND, 2.4)
   };
-  ANIM.calf.rootBob = true; ANIM.shrug.rootBob = true;
+  ANIM.calf.rootBob = true; ANIM.shrug.rootBob = true; ANIM.pushup.rootBob = true;
 
   // apparatus + target region per pattern
   var CTX = {
@@ -216,7 +218,7 @@
     var lieLegs = { thigh: [-28, -28], shin: [64, 64] };
     if (pat === 'horizontal_press') {
       if (freeBar) { m.ctx = 'benchflat'; m.torso = -80; m.legs = lieLegs; }
-      else if (eq === 'bodyweight') { m.ctx = 'floor'; m.torso = -84; m.legs = { thigh: [-90, -90], shin: [0, 0] }; }
+      else if (eq === 'bodyweight') { m.ctx = 'floor'; m.pat = 'pushup'; m.impl = 'none'; }
       else m.ctx = 'seat';
     } else if (pat === 'incline_press') {
       if (freeBar) { m.ctx = 'benchincline'; m.torso = -44; m.legs = { thigh: [-34, -34], shin: [62, 62] }; }
@@ -236,7 +238,7 @@
     else if (pat === 'calf') { m.ctx = 'stand'; m.impl = 'machine'; }
     else if (pat === 'lateral') { m.ctx = 'stand'; }
     else if (pat === 'shrug') { m.ctx = 'stand'; }
-    else if (pat === 'crunch') { m.ctx = id === 'cable_crunch' ? 'cable' : (id === 'ab_crunch_machine' ? 'seat' : 'floor'); m.impl = m.ctx === 'floor' ? 'none' : m.impl; }
+    else if (pat === 'crunch') { if (id === 'hanging_leg_raise') { m.ctx = 'hang'; m.pat = 'leghang'; m.impl = 'none'; } else { m.ctx = id === 'cable_crunch' ? 'cable' : (id === 'ab_crunch_machine' ? 'seat' : 'floor'); m.impl = m.ctx === 'floor' ? 'none' : m.impl; } }
     else if (pat === 'rotation' || pat === 'antiext') { m.ctx = 'floor'; m.impl = 'none'; if (pat === 'antiext') { m.torso = -86; m.legs = { thigh: [-90, -90], shin: [0, 0] }; } }
     else if (pat === 'cardio') { m.ctx = 'tread'; m.impl = 'none'; }
     else if (pat === 'lat_iso') { m.ctx = 'cable'; }
@@ -249,11 +251,89 @@
     return p;
   }
 
+  /* ---------- FRONT-VIEW rig (frontal-plane movements the side view can't show) ---------- */
+  var FRONT_PATS = { lateral: 1, fly: 1, rear_fly: 1, abduction: 1 };
+  // upper-arm angles are mirrored L/R; 0 = arm down at the side, larger = out/up
+  function frontPose(ex) {
+    var pat = ex.pattern, id = ex.id;
+    var f = { la: [6, 6], ra: [-6, -6], lt: [7, 7], rt: [-7, -7], dur: 2.4, seated: false };
+    if (pat === 'lateral') { f.la = [8, 88]; f.ra = [-8, -88]; f.dur = 2.2; }
+    else if (pat === 'fly') {
+      if (id === 'cable_crossover') { f.la = [140, 34]; f.ra = [-140, -34]; f.dur = 2.6; }
+      else { f.la = [84, 26]; f.ra = [-84, -26]; f.seated = true; f.dur = 2.6; }
+    }
+    else if (pat === 'rear_fly') { f.la = [26, 90]; f.ra = [-26, -90]; f.seated = true; f.dur = 2.6; }
+    else if (pat === 'abduction') { f.la = [6, 6]; f.ra = [-6, -6]; f.lt = [8, 44]; f.rt = [-8, -44]; f.seated = true; f.legMove = true; f.dur = 2.2; }
+    return f;
+  }
+  function frontBad(f) {
+    var b = JSON.parse(JSON.stringify(f)); b.dur = Math.max(0.9, f.dur * 0.6);
+    function part(j) { b[j][1] = b[j][0] + (b[j][1] - b[j][0]) * 0.5; }
+    if (f.legMove) { part('lt'); part('rt'); } else { part('la'); part('ra'); }
+    b.torsoSway = 12; // add body english = the mistake
+    return b;
+  }
+  function frontArm(x, ang, animStr, col, glow, impl, ghost) {
+    return '<g transform="translate(' + x + ',-36)"><g transform="rotate(' + ang + ')">' + animStr +
+      seg(20, 9, col, glow) + '<circle cx="0" cy="20" r="3" fill="' + col + '"/>' +
+      '<g transform="translate(0,20)"><g transform="rotate(-8)">' + seg(17, 7, col) + '<circle cx="0" cy="17" r="4.5" fill="' + col + '"/>' + (impl === 'db' && !ghost ? '<g transform="translate(0,17)"><rect x="-6" y="-2" width="12" height="4" rx="2" fill="#6A747E"/><rect x="-9" y="-4" width="4" height="8" rx="1.5" fill="#464F57"/><rect x="5" y="-4" width="4" height="8" rx="1.5" fill="#464F57"/></g>' : '') + '</g></g></g></g>';
+  }
+  function frontLeg(x, ang, animStr, col) {
+    return '<g transform="translate(' + x + ',2)"><g transform="rotate(' + ang + ')">' + animStr + seg(24, 11, col) + '<circle cx="0" cy="24" r="4" fill="' + col + '"/><g transform="translate(0,24)">' + seg(22, 9, col) + '</g></g></g>';
+  }
+  function frontFigure(f, right, ghost, impl) {
+    var still = ghost ? '#333B43' : '#39424A', hot = ghost ? '#333B43' : (right ? '#31C85E' : '#E4585C'), body = ghost ? '#333B43' : '#333C44', d = f.dur, fr = ghost ? 1 : 0;
+    function A(j) { return ghost ? '' : anim(f[j][0], f[j][1], d); }
+    function armCol() { return (!ghost && !f.legMove) ? hot : still; }
+    function legCol() { return (!ghost && f.legMove) ? hot : still; }
+    function armGlow() { return !ghost && !f.legMove; }
+    var sway = (!ghost && f.torsoSway) ? f.torsoSway : 0;
+    var arms = frontArm(-16, f.la[fr], A('la'), armCol(), armGlow(), impl, ghost) + frontArm(16, f.ra[fr], A('ra'), armCol(), armGlow(), impl, ghost);
+    var legs = frontLeg(-7, f.lt[fr], A('lt'), legCol()) + frontLeg(7, f.rt[fr], A('rt'), legCol());
+    var torso = '<g' + (sway ? ' transform="rotate(' + sway + ')"' : '') + '><rect x="-14" y="-40" width="28" height="40" rx="11" fill="' + body + '"/>' +
+      '<circle cx="0" cy="-52" r="9" fill="' + body + '"/><rect x="-13" y="-4" width="26" height="10" rx="5" fill="' + body + '"/>' + arms + '</g>';
+    var g = legs + torso;
+    return ghost ? '<g opacity="0.28">' + g + '</g>' : g;
+  }
+  function frontArrows(f) {
+    // draw a direction arrow on each hand (or knee for abduction)
+    function pt(x, ang) { var r = ang * Math.PI / 180; return { x: x + 38 * -Math.sin(r) * -1 * 0 + (-Math.sin(r)) * 38, y: -36 + Math.cos(r) * 38 }; }
+    function hand(x, a) { var r = a * Math.PI / 180; return { x: x + (-Math.sin(r)) * 37, y: -36 + Math.cos(r) * 37 }; }
+    function knee(x, a) { var r = a * Math.PI / 180; return { x: x + (-Math.sin(r)) * 24, y: 2 + Math.cos(r) * 24 }; }
+    var pairs = f.legMove ? [[-7, f.lt], [7, f.rt]] : [[-16, f.la], [16, f.ra]];
+    return pairs.map(function (pr) {
+      var A = f.legMove ? knee(pr[0], pr[1][0]) : hand(pr[0], pr[1][0]);
+      var B = f.legMove ? knee(pr[0], pr[1][1]) : hand(pr[0], pr[1][1]);
+      var dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy); if (L < 10) return '';
+      var ang = Math.atan2(dy, dx) * 180 / Math.PI;
+      return '<g><line x1="' + A.x.toFixed(1) + '" y1="' + A.y.toFixed(1) + '" x2="' + B.x.toFixed(1) + '" y2="' + B.y.toFixed(1) + '" stroke="#31C85E" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="1 5"><animate attributeName="stroke-dashoffset" values="12;0" dur="0.9s" repeatCount="indefinite"/></line>' +
+        '<g transform="translate(' + B.x.toFixed(1) + ',' + B.y.toFixed(1) + ') rotate(' + ang.toFixed(1) + ')"><path d="M0 0 L-8 -5 L-8 5 Z" fill="#31C85E"/></g></g>';
+    }).join('');
+  }
+  function frontApparatus(f) {
+    if (f.seated && f.legMove) return '<rect x="-16" y="4" width="32" height="7" rx="3" fill="#20262C" stroke="#2B333B"/>'; // abduction seat
+    if (f.seated) return '<rect x="-16" y="4" width="32" height="7" rx="3" fill="#20262C" stroke="#2B333B"/><rect x="-20" y="-40" width="6" height="44" rx="3" fill="#20262C" stroke="#2B333B"/><rect x="14" y="-40" width="6" height="44" rx="3" fill="#20262C" stroke="#2B333B"/>'; // machine back+pads
+    return '<line x1="-34" y1="52" x2="34" y2="52" stroke="#2B333B" stroke-width="2"/>';
+  }
+  function frontHowto(ex, variant) {
+    var right = variant !== 'wrong';
+    var base = frontPose(ex);
+    var f = right ? base : frontBad(base);
+    var impl = ex.equipType === 'dumbbell' ? 'db' : 'none';
+    var badge = right
+      ? '<g transform="translate(11,13)"><circle r="10" fill="#31C85E"/><path d="M-4.5 0l3 3 6-7" stroke="#0E1113" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'
+      : '<g transform="translate(11,13)"><circle r="10" fill="#E4585C"/><path d="M-4 -4l8 8M4 -4l-8 8" stroke="#0E1113" stroke-width="2.6" stroke-linecap="round"/></g>';
+    var defs = '<defs><filter id="hglow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
+    return '<svg class="howto" viewBox="0 0 140 172" aria-label="how to perform this exercise">' + defs +
+      '<g transform="translate(70,96)">' + frontApparatus(f) + frontFigure(f, right, true, impl) + frontFigure(f, right, false, impl) + (right ? frontArrows(f) : '') + '</g>' + badge + '</svg>';
+  }
+
   function howtoSVG(ex, variant) {
     var pattern = (typeof ex === 'string') ? ex : ex.pattern;
+    if (typeof ex === 'object' && ex && FRONT_PATS[pattern]) return frontHowto(ex, variant);
     var move = (typeof ex === 'object' && ex) ? deriveMove(ex) : { ctx: CTX[pattern] || 'stand', impl: 'none', torso: null, legs: null };
     var right = variant !== 'wrong';
-    var base = applyMove(ANIM[pattern] || ANIM['default'], move);
+    var base = applyMove(ANIM[move.pat || pattern] || ANIM['default'], move);
     var p = right ? base : badPose(base, WRONG[pattern] || 'half');
     var rootT = 'translate(70,96)', rootA = '';
     if (p.rootBob) rootA = '<animateTransform attributeName="transform" type="translate" values="70,96;70,88;70,88;70,96" keyTimes="0;0.42;0.6;1" dur="' + (p.dur * 1.2).toFixed(2) + 's" repeatCount="indefinite"/>';
