@@ -1,0 +1,256 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Forge — Chalk & Steel — light</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{ 
+  --stage:#D9D4C7; --bezel:#BFB9A8; --iron:#EEEBE2; --panel:#F8F6F0; --panel2:#FBFAF5;
+  --line:#DBD6C7; --chalk:#181A1D; --muted:#6B7076;
+  --ember:#D8471A; --ember2:#F2703C; --emberwash:rgba(216,71,26,.10); --emberline:rgba(216,71,26,.38);
+  --steel:#3D6E96; --musc:#DAD5C7; --muscln:#C6C0AE; --navbg:rgba(238,235,226,.9);
+
+  --disp:'Oswald','Arial Narrow',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --sans:'Inter','Helvetica Neue',Arial,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--stage);display:flex;justify-content:center;font-family:var(--sans);
+  color:var(--chalk);-webkit-font-smoothing:antialiased;padding:26px 0}
+.phone{width:412px;background:var(--iron);min-height:860px;border-radius:34px;overflow:hidden;
+  box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 10px var(--bezel);position:relative}
+.screen{padding:22px 18px 96px}
+
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:8px;font-family:var(--disp);font-weight:600;
+  letter-spacing:.04em;font-size:19px;text-transform:none}
+.brand .dot{width:9px;height:9px;border-radius:2px;background:var(--ember);
+  box-shadow:0 0 12px var(--ember)}
+.date{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.08em}
+
+.rankrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;gap:12px}
+.rank{flex:1}
+.rank .lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.rank .barwrap{height:5px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}
+.rank .bar{height:100%;width:62%;background:linear-gradient(90deg,var(--ember),var(--ember2));border-radius:3px}
+.streak{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;font-weight:600;
+  color:var(--chalk);background:var(--panel);border:1px solid var(--line);padding:7px 11px;border-radius:999px}
+.flame{width:13px;height:13px}
+
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--ember);text-transform:uppercase;font-weight:600}
+h1.day{font-family:var(--disp);font-weight:700;font-size:52px;line-height:.92;margin:6px 0 6px;
+  letter-spacing:.01em;text-transform:uppercase}
+.subline{font-size:13.5px;color:var(--muted);margin:0 0 18px}
+.subline b{color:var(--chalk);font-weight:600}
+
+.targets{display:flex;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);
+  border-radius:18px;padding:16px;margin-bottom:14px}
+.figwrap{width:96px;flex:0 0 auto;display:flex;justify-content:center}
+.figure{width:96px;height:auto;display:block}
+.figure .body ellipse,.figure .body path,.figure .body rect{transition:.3s}
+.hot{fill:var(--ember)!important;stroke:var(--ember2)!important;filter:url(#glow)}
+.tinfo .lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--mono);font-size:11px;padding:5px 9px;border-radius:6px;
+  background:var(--emberwash);color:var(--ember);border:1px solid var(--emberline);font-weight:500}
+.chip.cool{background:transparent;color:var(--muted);border-color:var(--line)}
+.meter{display:flex;align-items:center;gap:10px;margin:16px 2px 20px}
+.pips{display:flex;gap:4px;flex:1}
+.pip{height:5px;flex:1;border-radius:3px;background:var(--line)}
+.pip.on{background:var(--ember)}
+.meter .n{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-bottom:12px}
+.card.active{border-color:var(--emberline);box-shadow:0 0 0 1px var(--emberline),0 14px 34px rgba(0,0,0,.28)}
+.chead{display:flex;gap:13px;padding:14px 14px 12px}
+.shot{width:70px;height:70px;border-radius:13px;flex:0 0 auto;object-fit:cover;
+  background:var(--panel2);border:1px solid var(--line)}
+.cnum{font-family:var(--mono);font-size:10px;color:var(--ember);letter-spacing:.14em;font-weight:600}
+.cname{font-family:var(--disp);font-weight:600;font-size:22px;line-height:1;margin:3px 0 6px;text-transform:uppercase;letter-spacing:.01em}
+.ctag{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.05em}
+.target{display:flex;align-items:center;gap:8px;padding:0 14px 12px}
+.target .t{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--chalk)}
+.target .plates{display:flex;gap:3px;margin-left:auto;align-items:center}
+.plate{width:7px;border-radius:2px;background:var(--steel)}
+.sets{border-top:1px solid var(--line)}
+.setrow{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.slab{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.1em;width:44px}
+.sval{font-family:var(--mono);font-size:13px;color:var(--chalk);font-weight:500}
+.sval .u{color:var(--muted);font-weight:400}
+.tick{margin-left:auto;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);
+  display:grid;place-items:center}
+.tick.done{background:var(--ember);border-color:var(--ember)}
+.tick.done svg{stroke:var(--iron)}
+.tick svg{width:13px;height:13px;stroke:var(--muted);stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.setrow.todo .sval{color:var(--muted)}
+.cfoot{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--line)}
+.rest{font-family:var(--mono);font-size:11px;color:var(--steel);border:1px solid var(--line);
+  padding:6px 10px;border-radius:8px;letter-spacing:.05em}
+.cue{font-size:12px;color:var(--muted);flex:1}
+.cue b{color:var(--chalk);font-weight:600}
+.logbtn{margin-left:auto;font-family:var(--disp);font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  font-size:13px;background:var(--ember);color:#fff;border:0;border-radius:10px;padding:11px 18px}
+
+.card.next{opacity:.6}
+.card.next .chead{padding-bottom:14px}
+
+nav{position:absolute;left:0;right:0;bottom:0;background:var(--navbg);border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(5,1fr);padding:10px 8px 20px;backdrop-filter:blur(12px)}
+nav a{display:flex;flex-direction:column;align-items:center;gap:5px;font-family:var(--mono);
+  font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-decoration:none}
+nav a.on{color:var(--chalk)}
+nav a.on svg{stroke:var(--ember)}
+nav svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tagpill{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-family:var(--mono);
+  font-size:9px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+</style></head>
+<body>
+<div class="phone">
+  <div class="tagpill">Chalk & Steel — light</div>
+  <div class="screen">
+    <div class="topbar">
+      <div class="brand"><span class="dot"></span>muscles</div>
+      <div class="date">MON · JUL 30 · WK 3</div>
+    </div>
+    <div class="rankrow">
+      <div class="rank">
+        <div class="lab">Rank · Novice → Intermediate</div>
+        <div class="barwrap"><div class="bar"></div></div>
+      </div>
+      <div class="streak">
+        <svg class="flame" viewBox="0 0 24 24" fill="var(--ember)" stroke="none"><path d="M12 2c1 4 5 5 5 9a5 5 0 0 1-10 0c0-1 .3-2 1-3 .2 2 1.5 2.5 1.5 2.5C8 8 12 6 12 2z"/></svg>
+        12
+      </div>
+    </div>
+
+    <div class="eyebrow">Session 12 · Push</div>
+    <h1 class="day">Push Day</h1>
+    <p class="subline"><b>Chest · Shoulders · Triceps</b> — 6 moves · ~50 min</p>
+
+    <div class="targets">
+      <div class="figwrap">
+<svg class="figure" viewBox="0 0 200 400" aria-hidden="true">
+  <defs>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g class="body" fill="var(--musc)" stroke="var(--muscln)" stroke-width="1">
+    <!-- head + neck -->
+    <ellipse cx="100" cy="26" rx="16" ry="19"/>
+    <rect x="90" y="42" width="20" height="14" rx="6"/>
+    <!-- traps -->
+    <path d="M74 56 Q100 48 126 56 L120 74 Q100 66 80 74 Z"/>
+    <!-- shoulders / front delts -->
+    <ellipse class="m-delts hot" cx="62" cy="86" rx="17" ry="15"/>
+    <ellipse class="m-delts hot" cx="138" cy="86" rx="17" ry="15"/>
+    <!-- chest / pecs -->
+    <path class="m-chest hot" d="M78 78 Q100 74 99 76 L99 112 Q86 120 74 108 Q72 90 78 78 Z"/>
+    <path class="m-chest hot" d="M122 78 Q100 74 101 76 L101 112 Q114 120 126 108 Q128 90 122 78 Z"/>
+    <!-- biceps -->
+    <ellipse class="m-arms" cx="52" cy="118" rx="10" ry="20"/>
+    <ellipse class="m-arms" cx="148" cy="118" rx="10" ry="20"/>
+    <!-- triceps (side of upper arm) -->
+    <ellipse class="m-tri hot" cx="43" cy="120" rx="6" ry="18"/>
+    <ellipse class="m-tri hot" cx="157" cy="120" rx="6" ry="18"/>
+    <!-- forearms -->
+    <ellipse cx="47" cy="158" rx="8" ry="20"/>
+    <ellipse cx="153" cy="158" rx="8" ry="20"/>
+    <!-- abs -->
+    <g class="m-abs">
+      <rect x="88" y="116" width="24" height="58" rx="7"/>
+      <line x1="100" y1="120" x2="100" y2="170" stroke="var(--iron)" stroke-width="1.4"/>
+      <line x1="89" y1="132" x2="111" y2="132" stroke="var(--iron)" stroke-width="1.4"/>
+      <line x1="89" y1="147" x2="111" y2="147" stroke="var(--iron)" stroke-width="1.4"/>
+      <line x1="89" y1="161" x2="111" y2="161" stroke="var(--iron)" stroke-width="1.4"/>
+    </g>
+    <!-- obliques -->
+    <path d="M80 116 Q74 140 82 172 L88 170 L88 118 Z"/>
+    <path d="M120 116 Q126 140 118 172 L112 170 L112 118 Z"/>
+    <!-- pelvis -->
+    <path d="M84 176 Q100 186 116 176 L112 196 Q100 202 88 196 Z"/>
+    <!-- quads -->
+    <path class="m-quads" d="M84 198 Q80 250 90 296 Q98 300 99 296 L99 200 Q92 196 84 198 Z"/>
+    <path class="m-quads" d="M116 198 Q120 250 110 296 Q102 300 101 296 L101 200 Q108 196 116 198 Z"/>
+    <!-- knees -->
+    <ellipse cx="92" cy="308" rx="9" ry="8"/>
+    <ellipse cx="108" cy="308" rx="9" ry="8"/>
+    <!-- calves -->
+    <path class="m-calves" d="M85 316 Q82 350 92 372 Q96 372 97 368 L97 318 Q90 314 85 316 Z"/>
+    <path class="m-calves" d="M115 316 Q118 350 108 372 Q104 372 103 368 L103 318 Q110 314 115 316 Z"/>
+  </g>
+</svg>
+</div>
+      <div class="tinfo">
+        <div class="lab">Today heats</div>
+        <div class="chips">
+          <span class="chip">Chest</span>
+          <span class="chip">Front delts</span>
+          <span class="chip">Triceps</span>
+          <span class="chip cool">core</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="meter">
+      <div class="pips">
+        <span class="pip on"></span><span class="pip on"></span><span class="pip on"></span>
+        <span class="pip on"></span><span class="pip"></span><span class="pip"></span>
+      </div>
+      <span class="n">4 / 18 sets</span>
+    </div>
+
+    <div class="card active">
+      <div class="chead">
+        <img class="shot" src="file:///E:/gYM/GYM/Gym%20equipment%205.jpeg" alt="">
+        <div>
+          <div class="cnum">01 · IN PROGRESS</div>
+          <div class="cname">Incline Chest Press</div>
+          <div class="ctag">Plate-loaded · converging press</div>
+        </div>
+      </div>
+      <div class="target">
+        <span class="t">3 × 8–12  @  45 lb / side</span>
+        <span class="plates" title="plate math">
+          <span class="plate" style="height:20px"></span>
+          <span class="plate" style="height:14px"></span>
+          <span class="plate" style="height:10px"></span>
+        </span>
+      </div>
+      <div class="sets">
+        <div class="setrow"><span class="slab">SET 1</span><span class="sval">11 <span class="u">reps</span> · 45 <span class="u">lb</span></span><span class="tick done"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span></div>
+        <div class="setrow"><span class="slab">SET 2</span><span class="sval">10 <span class="u">reps</span> · 45 <span class="u">lb</span></span><span class="tick done"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span></div>
+        <div class="setrow todo"><span class="slab">SET 3</span><span class="sval">— <span class="u">target 8–12 · 45 lb</span></span><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span></div>
+      </div>
+      <div class="cfoot">
+        <span class="rest">REST 75s</span>
+        <span class="cue"><b>Cue:</b> elbows ~45°, drive up & in.</span>
+        <button class="logbtn">Log</button>
+      </div>
+    </div>
+
+    <div class="card next">
+      <div class="chead">
+        <img class="shot" src="file:///E:/gYM/GYM/Gym%20equipment%2024.jpeg" alt="">
+        <div>
+          <div class="cnum">02 · UP NEXT</div>
+          <div class="cname">Shoulder Press</div>
+          <div class="ctag">3 × 8–12 · target 30 lb / side</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav>
+    <a class="on" href="#"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Today</a>
+    <a href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M6 21c0-4 2.5-7 6-7s6 3 6 7"/></svg>Train</a>
+    <a href="#"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6"/></svg>Progress</a>
+    <a href="#"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>Plan</a>
+    <a href="#"><svg viewBox="0 0 24 24"><path d="M12 3l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 17l8 4 8-4"/></svg>Coach</a>
+  </nav>
+</div>
+</body></html>

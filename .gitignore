@@ -1,0 +1,11 @@
+# raw source photos (huge) + old prototype — not shipped
+GYM/
+# build/deps
+node_modules/
+# os
+Thumbs.db
+.DS_Store
+# scratch
+*.log
+tools/_chromeprofile/
+tools/_convert.html
