@@ -63,3 +63,7 @@ node tools/optimize-images.mjs
 ## Still to confirm (morning to-do)
 
 A handful of machines were identified from photos and flagged `confirm:true` in `data/equipment.js` (also shown with a "verify" tag in the Train tab). Walk the gym, check the photo matches the name, and correct any. Everything else is wired and working.
+
+## Exercise demos
+
+Each exercise shows a real 2-frame photo demonstration (`assets/demos/<id>_0.webp` + `_1.webp`, alternated for a start→end loop). Photos are from the **free-exercise-db** (https://github.com/yuhonas/free-exercise-db), released under the **Unlicense** (public domain). Regenerate/re-match with `tools/match-demos.mjs` (writes `tools/demos-map.json`).
