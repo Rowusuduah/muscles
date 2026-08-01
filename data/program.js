@@ -125,9 +125,9 @@
       { chest: [5, 8], back: [5, 8], quads: [5, 8], hamstrings: [4, 7], glutes: [4, 7], shoulders: [3, 6], arms: [2, 6], core: [4, 6] }
     ),
     push_pull_legs: makeProgram(
-      'push_pull_legs', 'Push / Pull / Legs', 'beginner-intermediate', [3],
+      'push_pull_legs', 'Push / Pull / Legs', 'beginner-intermediate', [3, 5, 6, 7],
       { push: push, pull: pull, legs: legs }, ['push', 'pull', 'legs'],
-      'One focused push, pull, and lower-body session each week.',
+      'Push, pull, and lower-body sessions on a 3-day rotation. Run it once for 3 days, or repeat it for 5–7 days a week.',
       { chest: [6, 10], back: [8, 12], quads: [6, 10], hamstrings: [5, 9], glutes: [5, 9], shoulders: [5, 9], arms: [5, 9], core: [4, 7] }
     ),
     upper_lower: makeProgram(
@@ -168,6 +168,10 @@
 
   function recommend(experience, frequency) {
     var days = Number(frequency) || 3;
+    // 5-7 days/week: Push/Pull/Legs rotates cleanly at high frequency (a full
+    // rotation every 3 sessions), so it scales to 5, 6 or 7 days better than the
+    // 4-day splits.
+    if (days >= 5) return 'push_pull_legs';
     if (experience === 'intermediate' && days >= 4) return 'intermediate_four_day';
     if (days >= 4) return 'upper_lower';
     if (days === 3 && experience === 'intermediate') return 'push_pull_legs';

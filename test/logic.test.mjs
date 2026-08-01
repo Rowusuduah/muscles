@@ -141,6 +141,11 @@ test('program recommendation respects experience and realistic weekly frequency'
   assert.equal(PROGRAM.recommend('intermediate', 3), 'push_pull_legs');
   assert.equal(PROGRAM.recommend('beginner', 4), 'upper_lower');
   assert.equal(PROGRAM.recommend('intermediate', 4), 'intermediate_four_day');
+  // 5-7 days/week routes to Push/Pull/Legs (rotates cleanly at high frequency).
+  assert.equal(PROGRAM.recommend('beginner', 5), 'push_pull_legs');
+  assert.equal(PROGRAM.recommend('intermediate', 6), 'push_pull_legs');
+  assert.equal(PROGRAM.recommend('beginner', 7), 'push_pull_legs');
+  assert.ok([3, 5, 6, 7].every((n) => PROGRAM.programs.push_pull_legs.sessionsPerRotation.includes(n)));
 });
 
 test('time fitting supports 20–120 minutes and never leaves the selected program', () => {
@@ -307,6 +312,6 @@ test('theme and weekly training-day controls remain available after onboarding',
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.match(html, /id="theme-toggle"[^>]*data-action="toggle-theme"/);
   assert.match(app, /data-action="set-frequency"/);
-  assert.match(app, /\[2, 3, 4\]/);
+  assert.match(app, /\[2, 3, 4, 5, 6, 7\]/); // 2–7 training days selectable
   assert.match(app, /history preserved/);
 });

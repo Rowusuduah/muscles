@@ -71,7 +71,7 @@
   }
 
   function frequencyPicker() {
-    return '<div class="schedule-picker"><fieldset class="choicegroup schedule-choice"><legend>Training days per week</legend>' + [2, 3, 4].map(function (days) {
+    return '<div class="schedule-picker"><fieldset class="choicegroup schedule-choice"><legend>Training days per week</legend>' + [2, 3, 4, 5, 6, 7].map(function (days) {
       return '<button type="button" data-action="set-frequency" data-days="' + days + '" class="' + (cfg.weeklyFrequency === days ? 'on' : '') + '" aria-pressed="' + (cfg.weeklyFrequency === days) + '">' + days + '<span>day' + (days === 1 ? '' : 's') + '</span></button>';
     }).join('') + '</fieldset><small>Change this anytime. If the current program does not fit your schedule, muscles selects the matching handbook program and keeps all history.</small></div>';
   }
@@ -95,7 +95,7 @@
       '<p class="sub">Your private coach and verified guide for the 51 photographs from this gym. Your workout data never leaves this device.</p>' +
       '<label class="fieldlabel" for="obname">Name <span>optional</span></label><input class="search" id="obname" autocomplete="name" placeholder="What should the coach call you?">' +
       '<fieldset class="choicegroup"><legend>Training experience</legend><button type="button" data-action="ob-experience" data-v="beginner" class="on">Beginner</button><button type="button" data-action="ob-experience" data-v="intermediate">Intermediate</button></fieldset>' +
-      '<fieldset class="choicegroup"><legend>Realistic sessions per week</legend>' + [2, 3, 4].map(function (n) { return '<button type="button" data-action="ob-frequency" data-v="' + n + '" class="' + (n === 3 ? 'on' : '') + '">' + n + '</button>'; }).join('') + '</fieldset>' +
+      '<fieldset class="choicegroup"><legend>Realistic sessions per week</legend>' + [2, 3, 4, 5, 6, 7].map(function (n) { return '<button type="button" data-action="ob-frequency" data-v="' + n + '" class="' + (n === 3 ? 'on' : '') + '">' + n + '</button>'; }).join('') + '</fieldset>' +
       '<div class="panel recommend" id="obrecommend"><div class="eyebrow">Recommended program</div><b>' + esc(PROGRAM_REGISTRY.get(PROGRAM_REGISTRY.recommend('beginner', 3)).name) + '</b></div>' +
       '<div class="obpoint"><span class="n">1</span><p>The coach fits only your selected program into <b>20–120 minutes</b>.</p></div>' +
       '<div class="obpoint"><span class="n">2</span><p>Busy-machine swaps, partner sessions, timers and demonstrations stay ready.</p></div>' +
@@ -852,7 +852,7 @@
       case 'log-cardio': saveCardio(); break;
       case 'select-program': { cfg.programId = d('data-program'); state.selectedProgram = cfg.programId; ACTIVE_PROGRAM = PROGRAM_REGISTRY.get(cfg.programId); if (ACTIVE_PROGRAM.sessionsPerRotation.indexOf(cfg.weeklyFrequency) < 0) cfg.weeklyFrequency = ACTIVE_PROGRAM.sessionsPerRotation[ACTIVE_PROGRAM.sessionsPerRotation.length - 1]; plan.cycleIndex = 0; persist(); renderTrain(); updateHeader(); toast('Program changed; workout history preserved'); break; }
       case 'set-frequency': {
-        var requestedDays = +d('data-days'); if ([2, 3, 4].indexOf(requestedDays) < 0) break;
+        var requestedDays = +d('data-days'); if (requestedDays < 2 || requestedDays > 7) break;
         cfg.weeklyFrequency = requestedDays;
         var switchedProgram = false;
         if (ACTIVE_PROGRAM.sessionsPerRotation.indexOf(requestedDays) < 0) {

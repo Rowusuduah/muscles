@@ -43,7 +43,7 @@
     Object.keys(base.config).forEach(function (key) {
       if (config[key] !== undefined) base.config[key] = config[key];
     });
-    base.config.weeklyFrequency = Math.max(2, Math.min(4, Number(base.config.weeklyFrequency) || 3));
+    base.config.weeklyFrequency = Math.max(2, Math.min(7, Number(base.config.weeklyFrequency) || 3));
     base.config.experience = base.config.experience === 'intermediate' ? 'intermediate' : 'beginner';
     base.config.theme = ['system', 'dark', 'light'].indexOf(base.config.theme) >= 0 ? base.config.theme : 'system';
     var requestedProgram = state.selectedProgram || base.config.programId;
