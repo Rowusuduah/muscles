@@ -25,6 +25,8 @@
     state.liftHistory = lifts; state.workoutLogs = log; state.customLabels = eqNames;
     state.machineSettings = machineSettings;
     state = APPSTATE.save(localStorage, state);
+    // Record the change time and, if Drive is connected, queue a background sync.
+    if (window.MDRIVE) window.MDRIVE.markChanged();
   }
   function set(k, v) {
     if (k === 'muscles-config') cfg = state.config = v;
@@ -722,8 +724,26 @@
       '<div class="setting-row"><span><b>Advanced tools</b><small>Supersets and rest-pause; off by default for beginners.</small></span><button class="mini ' + (cfg.advanced ? 'busy' : '') + '" data-action="toggle-advanced" aria-pressed="' + cfg.advanced + '">' + (cfg.advanced ? 'On' : 'Off') + '</button></div>' +
       '<div class="setting-row"><span><b>Offline readiness</b><small id="offline-detail">Checking cached app shell…</small></span><span class="offline-badge" id="offline-badge">Checking</span></div></div>' +
       '<div class="panel backup"><span class="fieldlabel">Device-local backup</span><p class="sub">Export includes settings, history, records, machine settings and nicknames. Import validates first and asks before replacing this device’s state.</p><div class="inline-field"><button class="mini" data-action="export-backup">Export JSON</button><label class="mini file-button" for="importbackup">Import JSON</label><input id="importbackup" type="file" accept="application/json,.json" hidden></div></div>' +
-      '<p class="privacy-note">No account. No analytics. No workout upload. Data stays in this browser unless you export it.</p>';
+      '<div class="panel backup"><span class="fieldlabel">Cloud sync — Google Drive</span><p class="sub">Sign in with Google to save your training data to a single file in your Drive and keep it in sync across devices. Optional; the app works fully offline without it.</p>' +
+      '<div class="inline-field" id="gdrive-actions"></div>' +
+      '<p class="sub" id="gdrive-status" role="status" aria-live="polite" style="margin-top:8px"></p></div>' +
+      '<p class="privacy-note">No account required to train. Google sign-in is only for optional cross-device sync — your data goes to your own Google Drive, nowhere else.</p>';
     updateOfflineBadge();
+    updateDrivePanel();
+  }
+  // Render the Drive buttons + status to reflect the current connection state.
+  function updateDrivePanel() {
+    var actions = document.getElementById('gdrive-actions');
+    if (!actions) return;
+    var connected = window.MDRIVE && window.MDRIVE.isConnected();
+    actions.innerHTML = connected
+      ? '<button class="mini" data-action="drive-save">Save now</button><button class="mini" data-action="drive-load">Load from Drive</button><button class="mini" data-action="drive-disconnect">Disconnect</button>'
+      : '<button class="mini" data-action="drive-connect">Connect Google Drive</button>';
+    updateDriveStatus(window.MDRIVE ? window.MDRIVE.status() : '');
+  }
+  function updateDriveStatus(text) {
+    var el = document.getElementById('gdrive-status');
+    if (el) el.textContent = text || (window.MDRIVE && window.MDRIVE.isConnected() ? 'Connected to Google Drive.' : '');
   }
 
   /* ---------- router ---------- */
@@ -864,6 +884,10 @@
       }
       case 'toggle-advanced': cfg.advanced = !cfg.advanced; persist(); renderLearn(); toast('Advanced tools ' + (cfg.advanced ? 'enabled' : 'hidden')); break;
       case 'export-backup': exportBackup(); break;
+      case 'drive-connect': if (window.MDRIVE) { window.MDRIVE.connect(); updateDrivePanel(); } break;
+      case 'drive-save': if (window.MDRIVE) window.MDRIVE.saveNow(); break;
+      case 'drive-load': if (window.MDRIVE) window.MDRIVE.loadNow(); break;
+      case 'drive-disconnect': if (window.MDRIVE) { window.MDRIVE.disconnect(); updateDrivePanel(); toast('Google Drive disconnected'); } break;
       case 'accept-reduction': { var rs = SESSION.built.slots[SESSION.idx]; rs.pre = L.acceptReduction(rs.pre); rs.log.forEach(function (x) { if (!x.done) x.weight = rs.pre.weight; }); renderActive(); toast('Reduction accepted for this exercise'); break; }
       case 'demo-toggle': { var block = a.closest('.demoblock'), demo = block && block.querySelector('.demo'); if (!demo) break; demo.classList.remove('start', 'end'); var paused = demo.classList.toggle('paused'); a.textContent = paused ? 'Play' : 'Pause'; a.setAttribute('aria-pressed', paused); break; }
       case 'demo-frame': { var db = a.closest('.demoblock'), dm = db && db.querySelector('.demo'); if (!dm) break; dm.classList.remove('start', 'end'); dm.classList.add(d('data-frame')); dm.classList.add('paused'); var toggle = db.querySelector('[data-action=demo-toggle]'); if (toggle) { toggle.textContent = 'Play'; toggle.setAttribute('aria-pressed', 'true'); } break; }
@@ -883,4 +907,16 @@
   /* ---------- boot ---------- */
   applyTheme(); updateHeader(); routeFromHash();
   if (migration.migrated && (Object.keys(log).length || Object.keys(lifts).length)) toast('History migrated safely to AppStateV2');
+
+  // Optional Google Drive sync: reflect status in the settings panel, reload on
+  // a pulled snapshot, flush pending pushes before the tab is backgrounded.
+  if (window.MDRIVE) {
+    window.MDRIVE.setHooks({
+      onStatus: function (text) { updateDriveStatus(text); updateDrivePanel(); },
+      onLoaded: function () { location.reload(); }
+    });
+    window.MDRIVE.autoBoot();
+    window.addEventListener('visibilitychange', function () { if (document.hidden) window.MDRIVE.flush(); });
+    window.addEventListener('pagehide', function () { window.MDRIVE.flush(); });
+  }
 })();
