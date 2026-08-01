@@ -1,7 +1,6 @@
-# Ship only the static PWA to Vercel — exclude the Vite/Workers build system,
-# the OpenAI-hosting config, and the handbook-generation tooling. These stay in
-# the repo (for local dev, tests, and regenerating the handbook) but are not
-# needed to serve the site. Mirrors how MoneyTrack deploys: pure static root.
+# Ship only the static PWA to Vercel. Mirrors how MoneyTrack deploys: pure
+# static root. Dev/test files and the handbook-generation tooling stay in the
+# repo but aren't part of the served site.
 node_modules
 dist
 .wrangler
@@ -9,13 +8,5 @@ dist
 .handbook_qa
 test
 tools
-build
-worker
-.openai
-.github
-vite.config.mjs
 package.json
-package-lock.json
-*.py
-*.docx
 GYM

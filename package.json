@@ -6,12 +6,6 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
-    "test": "node --test",
-    "validate": "npm test && npm run build && node tools/validate-build.mjs"
-  },
-  "devDependencies": {
-    "vite": "8.2.0"
+    "test": "node --test"
   }
 }
