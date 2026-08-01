@@ -9,4 +9,5 @@ dist
 test
 tools
 package.json
+*.docx
 GYM
