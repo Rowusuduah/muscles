@@ -24,6 +24,7 @@
     { id: 'glutes',     name: 'Glutes',         short: 'Glute',   group: 'legs', side: 'back',  weeklyTarget: 12 },
     { id: 'quads',      name: 'Quads',          short: 'Quad',    group: 'legs', side: 'front', weeklyTarget: 14 },
     { id: 'hamstrings', name: 'Hamstrings',     short: 'Ham',     group: 'legs', side: 'back',  weeklyTarget: 12 },
+    { id: 'adductors',  name: 'Adductors',      short: 'Add',     group: 'legs', side: 'front', weeklyTarget: 6 },
     { id: 'calves',     name: 'Calves',         short: 'Calf',    group: 'legs', side: 'both',  weeklyTarget: 10 }
   ];
 });

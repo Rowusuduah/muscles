@@ -2,6 +2,11 @@
 GYM/
 # build/deps
 node_modules/
+dist/
+.wrangler/
+.sites-build/
+.handbook_qa/
+tools/__pycache__/
 # os
 Thumbs.db
 .DS_Store

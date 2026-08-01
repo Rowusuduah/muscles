@@ -64,7 +64,7 @@
   }
   function resolveSlot(slot, EX) {
     var ex = EX[slot.ex];
-    return { role: slot.r, target: slot.m, exId: slot.ex, ex: ex, alt: slot.alt || [], sets: ex ? ex.sets : 3 };
+    return { role: slot.r, target: slot.m, exId: slot.ex, ex: ex, alt: slot.alt || [], sets: slot.sets || (ex ? ex.sets : 3) };
   }
   function sumSeconds(slots) {
     return slots.reduce(function (t, s) { return t + slotSeconds(s.ex, s.sets); }, 0);
@@ -73,7 +73,7 @@
   function accessoryForMuscle(muscleId, EX, exclude) {
     exclude = exclude || {};
     return Object.keys(EX).map(function (k) { return EX[k]; }).filter(function (e) {
-      return !exclude[e.id] && e.role === 'accessory' &&
+      return e.availability !== false && !exclude[e.id] && e.role === 'accessory' &&
         (e.primary.indexOf(muscleId) >= 0);
     });
   }
@@ -82,9 +82,10 @@
   function fitToBudget(slots, budgetMin, ctx, EX) {
     ctx = ctx || {};
     var budget = (budgetMin || 60) * 60;
-    var coreSeen = false;
+    var coreSeen = false, compoundSeen = 0;
     slots.forEach(function (s) {
-      s.essential = (s.role === 'compound') || (s.role === 'core' && !coreSeen);
+      if (s.role === 'compound') compoundSeen++;
+      s.essential = (s.role === 'compound' && compoundSeen <= 2) || (s.role === 'core' && !coreSeen);
       if (s.role === 'core' && !coreSeen) coreSeen = true;
     });
     function trimmable() { for (var i = slots.length - 1; i >= 0; i--) if (!slots[i].essential) return i; return -1; }
@@ -96,8 +97,11 @@
       if (!shaved) break;
     }
     function canAddSet() {
-      for (var a = 0; a < slots.length; a++) if (slots[a].role === 'accessory' && slots[a].sets < 5)
-        if (sumSeconds(slots) + (SET_SEC + slots[a].ex.restSec) <= budget) return a;
+      for (var a = 0; a < slots.length; a++) {
+        var role = slots[a].role;
+        var cap = role === 'core' ? 3 : 4;
+        if (slots[a].sets < cap && sumSeconds(slots) + (SET_SEC + slots[a].ex.restSec) <= budget) return a;
+      }
       return -1;
     }
     var guard = 0; while (guard++ < 40) { var a = canAddSet(); if (a < 0) break; slots[a].sets += 1; }
@@ -131,7 +135,7 @@
     var ex = EX[exId]; if (!ex) return [];
     var prim = ex.primary[0];
     return Object.keys(EX).map(function (k) { return EX[k]; }).filter(function (e) {
-      return e.id !== exId && e.role !== 'cardio' && e.primary.indexOf(prim) >= 0;
+      return e.availability !== false && e.id !== exId && e.role !== 'cardio' && e.primary.indexOf(prim) >= 0;
     }).sort(function (a, b) { return (b.pattern === ex.pattern ? 1 : 0) - (a.pattern === ex.pattern ? 1 : 0); }).map(function (e) { return e.id; });
   }
 
@@ -148,11 +152,23 @@
 
   /* cardio session seeded by budget */
   function buildCardio(program, EX, budgetMin, preferredExId) {
-    var c = program.days.cardio.cardio;
-    var exId = preferredExId || c.defaultEx;
+    var modalities = program.optionalCardio || ['treadmill_steady'];
+    var exId = preferredExId || modalities[0];
     var ex = EX[exId];
     var minutes = Math.max(12, Math.min(40, budgetMin || 20));
-    return { dayId: 'cardio', name: 'Cardio', exId: exId, ex: ex, minutes: minutes, effortTarget: c.effortTarget, modalities: c.modalities };
+    return { dayId: 'cardio', name: 'Cardio', exId: exId, ex: ex, minutes: minutes, effortTarget: 'Conversational effort — about 3–4 RIR for cardio', modalities: modalities };
+  }
+
+  function rampSets(program, workingWeight) {
+    var ramps = program && program.warmUp && program.warmUp.rampSets || [];
+    return ramps.map(function (ramp) {
+      return {
+        kind: 'warmup', targetReps: ramp.reps,
+        percent: ramp.percent,
+        weight: workingWeight == null ? null : Math.max(0, Math.round(workingWeight * ramp.percent / 100)),
+        label: ramp.label
+      };
+    });
   }
 
   /* ---------------- progression (double progression) ---------------- */
@@ -166,12 +182,13 @@
     var reps = rec.lastSetsReps || [];
     var top = ex.repRange[1], bottom = ex.repRange[0];
     var allTop = reps.length > 0 && reps.every(function (r) { return r >= top; });
+    var rirAllowsProgress = rec.lastRIR == null || rec.lastRIR >= 1;
     var anyBelow = reps.some(function (r) { return r < bottom; });
-    if (allTop) {
+    if (allTop && rirAllowsProgress) {
       return { mode: 'progress', weight: Math.max(0, rec.lastWeight + incrementLb(ex)), repRange: ex.repRange, sets: ex.sets, note: 'You hit the top reps — add weight.' };
     }
-    if ((rec.missStreak || 0) >= 1 && anyBelow) {
-      return { mode: 'deload', weight: Math.round(rec.lastWeight * 0.9), repRange: ex.repRange, sets: ex.sets, note: 'Two tough sessions — ease off ~10% and rebuild.' };
+    if ((rec.missStreak || 0) >= 2 && anyBelow) {
+      return { mode: 'reduce_suggested', weight: rec.lastWeight, suggestedWeight: Math.max(0, Math.round(rec.lastWeight * 0.9)), repRange: ex.repRange, sets: ex.sets, note: 'Repeated below-range work. Consider reducing about 10%; you decide.' };
     }
     return { mode: 'hold', weight: rec.lastWeight, repRange: ex.repRange, sets: ex.sets, note: 'Same weight — beat last time’s reps.' };
   }
@@ -184,14 +201,25 @@
     // working weight = the most common / max logged weight
     var w = working.reduce(function (m, s) { return Math.max(m, s.weight || 0); }, 0);
     var repsArr = working.map(function (s) { return s.reps; });
+    var rirValues = working.filter(function (s) { return s.rir != null && isFinite(s.rir); }).map(function (s) { return Number(s.rir); });
     var bottom = ex.repRange[0];
     var anyBelow = repsArr.some(function (r) { return r < bottom; });
     var best = working.reduce(function (m, s) { return Math.max(m, e1rm(s.weight, s.reps)); }, 0);
     return {
       lastWeight: w,
       lastSetsReps: repsArr,
+      lastRIR: rirValues.length ? rirValues[rirValues.length - 1] : rec.lastRIR,
       bestE1RM: Math.max(rec.bestE1RM || 0, best),
       missStreak: anyBelow ? (rec.missStreak || 0) + 1 : 0
+    };
+  }
+
+  function acceptReduction(prescription) {
+    if (!prescription || prescription.mode !== 'reduce_suggested') return prescription;
+    return {
+      mode: 'reduced', weight: prescription.suggestedWeight,
+      repRange: prescription.repRange, sets: prescription.sets,
+      note: 'Accepted reduction — rebuild with clean repetitions.'
     };
   }
 
@@ -270,9 +298,6 @@
     var recent = recentMuscles(log, EX, todayISO, 2);
     var last = lastDayId(log, todayISO);
     var MU = {}; MUSCLES.forEach(function (m) { MU[m.id] = m; });
-    var recentDays = Object.keys(log).filter(function (d) { var x = daysBetween(d, todayISO); return x >= 0 && x < 3; }).map(function (d) { return log[d].day; });
-    var lifts = recentDays.filter(function (d) { return d && d !== 'cardio'; }).length;
-    if (lifts >= 3 && recentDays.indexOf('cardio') < 0) return { dayId: 'cardio', reason: 'You\'ve lifted hard lately — an easy cardio day helps you recover.' };
     var best = program.liftingDays[0], bestScore = -1e9;
     program.liftingDays.forEach(function (d) {
       var focus = program.days[d].focusMuscles;
@@ -286,7 +311,47 @@
     return { dayId: best, reason: behind.length ? (behind.slice(0, 2).join(' & ') + ' need work this week.') : 'Keeping your week balanced.' };
   }
   function exercisesForBodyPart(part, EXERCISES) {
-    return EXERCISES.filter(function (e) { return e.role !== 'cardio' && (e.primary || []).some(function (m) { return part.muscles.indexOf(m) >= 0; }); });
+    return EXERCISES.filter(function (e) { return e.availability !== false && e.role !== 'cardio' && (e.primary || []).some(function (m) { return part.muscles.indexOf(m) >= 0; }); });
+  }
+
+  /* ---------------- consistency (selected weekly schedule) ---------------- */
+  function mondayOf(iso) {
+    var d = new Date(iso + 'T00:00:00');
+    var offset = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - offset);
+    return d.toISOString().slice(0, 10);
+  }
+  function sessionsInWeek(log, monday) {
+    var count = 0;
+    for (var i = 0; i < 7; i++) if (sessionOn(log, shiftISO(monday, i))) count++;
+    return count;
+  }
+  function consistencyLevel(completedPlanned) {
+    var levels = [
+      { name: 'Starting', at: 0 }, { name: 'Building', at: 5 },
+      { name: 'Consistent', at: 15 }, { name: 'Established', at: 35 },
+      { name: 'Durable', at: 75 }
+    ];
+    var current = levels[0], next = null;
+    for (var i = 0; i < levels.length; i++) {
+      if (completedPlanned >= levels[i].at) current = levels[i];
+      else { next = levels[i]; break; }
+    }
+    return { name: current.name, next: next ? next.name : null, toNext: next ? next.at - completedPlanned : 0, progress: next ? (completedPlanned - current.at) / (next.at - current.at) : 1 };
+  }
+  function weeklyConsistency(log, todayISO, frequency) {
+    var target = Math.max(1, Math.min(7, Number(frequency) || 3));
+    var currentMonday = mondayOf(todayISO);
+    var completed = sessionsInWeek(log, currentMonday);
+    var streakWeeks = 0;
+    for (var w = 1; w <= 104; w++) {
+      var monday = shiftISO(currentMonday, -7 * w);
+      if (sessionsInWeek(log, monday) >= target) streakWeeks++;
+      else break;
+    }
+    var total = 0;
+    Object.keys(log).forEach(function (date) { if (sessionOn(log, date)) total++; });
+    return { completed: completed, target: target, met: completed >= target, streakWeeks: streakWeeks, level: consistencyLevel(total) };
   }
 
   /* ---------------- streak (never-miss-twice) ---------------- */
@@ -355,19 +420,19 @@
   // ranked alternative exercises for a slot, limited to ones the user has equipment for
   function busyAlternatives(slot, EX, equipment) {
     var have = availableExerciseIds(equipment);
-    return (slot.alt || []).filter(function (id) { return have[id] && EX[id]; }).map(function (id) { return EX[id]; });
+    return (slot.alt || []).filter(function (id) { return have[id] && EX[id] && EX[id].availability !== false; }).map(function (id) { return EX[id]; });
   }
 
   return {
     lbToKg: lbToKg, kgToLb: kgToLb, toDisplay: toDisplay, fromInput: fromInput,
     e1rm: e1rm, dayIdAt: dayIdAt, nextIndex: nextIndex, byId: byId,
     availableExerciseIds: availableExerciseIds, machinesForExercise: machinesForExercise,
-    slotSeconds: slotSeconds, buildSession: buildSession, buildCardio: buildCardio,
+    slotSeconds: slotSeconds, buildSession: buildSession, buildCardio: buildCardio, rampSets: rampSets,
     fitToBudget: fitToBudget, buildCustom: buildCustom, altsForExercise: altsForExercise,
     recentMuscles: recentMuscles, lastDayId: lastDayId, nextAloneDay: nextAloneDay, exercisesForBodyPart: exercisesForBodyPart,
-    prescribe: prescribe, updateLift: updateLift,
+    prescribe: prescribe, acceptReduction: acceptReduction, updateLift: updateLift,
     weeklyVolume: weeklyVolume, cardioMinutes: cardioMinutes, heat: heat, recommendations: recommendations,
-    streak: streak, bestStreak: bestStreak, totalSets: totalSets, rank: rank,
+    streak: streak, bestStreak: bestStreak, weeklyConsistency: weeklyConsistency, consistencyLevel: consistencyLevel, totalSets: totalSets, rank: rank,
     busyAlternatives: busyAlternatives, RANKS: RANKS
   };
 });

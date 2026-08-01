@@ -1,11 +1,13 @@
 {
-  "name": "muscles",
+  "id": "./",
+  "name": "muscles · Verified Gym Guide & Coach",
   "short_name": "muscles",
-  "description": "Your personal strength coach — coached sessions, your gym's equipment, and a body that heats up as you train it.",
-  "start_url": "./",
+  "description": "Private adaptive workout coaching plus 45 verified equipment guides covering all 51 gym photographs.",
+  "start_url": "./#/today",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
+  "categories": ["fitness", "health", "education"],
   "background_color": "#121417",
   "theme_color": "#121417",
   "icons": [

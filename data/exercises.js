@@ -11,7 +11,7 @@
   else root.EXERCISES = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   var C = function (o) { return o; };
-  return [
+  var list = [
     /* ---------------- CHEST ---------------- */
     { id: 'pl_incline_press', name: 'Incline Chest Press', primary: ['chest'], secondary: ['front_delts', 'triceps'],
       role: 'compound', pattern: 'incline_press', equipType: 'plate', repRange: [6, 10], sets: 3, restSec: 105, unilateral: true, increment: { lb: 5, kg: 2.5 },
@@ -352,6 +352,111 @@
       role: 'cardio', pattern: 'cardio', equipType: 'cardio', repRange: [0, 0], sets: 0, restSec: 0, unilateral: false, increment: { lb: 0, kg: 0 },
       cues: ['Smooth steady effort, push and pull the handles', '15–30 min zone 2'],
       mistakes: ['Leaning on the handles', 'Going too hard'],
-      pickWeight: 'Easy-moderate, joint-friendly.', difficulty: 'beginner' }
+      pickWeight: 'Easy-moderate, joint-friendly.', difficulty: 'beginner' },
+
+    /* ---------- verified additions from the completed handbook ---------- */
+    { id: 'pl_decline_press', name: 'Plate-Loaded Decline Press', primary: ['chest'], secondary: ['triceps', 'front_delts'],
+      role: 'compound', pattern: 'decline_press', equipType: 'plate', repRange: [8, 12], sets: 3, restSec: 105, unilateral: true, increment: { lb: 5, kg: 2.5 },
+      cues: ['Handles begin at lower-to-mid chest', 'Press forward and slightly down', 'Keep shoulders away from the ears'],
+      mistakes: ['Arching away from the pad', 'Uneven plates', 'Forcing a painful bottom position'],
+      pickWeight: 'Choose a smooth load with 2–3 reps in reserve.', difficulty: 'beginner' },
+    { id: 'pl_seated_dip', name: 'Plate-Loaded Seated Dip', primary: ['triceps'], secondary: ['chest', 'front_delts'],
+      role: 'compound', pattern: 'tri_press', equipType: 'plate', repRange: [8, 15], sets: 3, restSec: 90, unilateral: false, increment: { lb: 5, kg: 2.5 },
+      cues: ['Sit tall with shoulders depressed', 'Press the handles down', 'Return without rolling shoulders forward'],
+      mistakes: ['Shrugging', 'Excessive forward lean', 'Half repetitions'],
+      pickWeight: 'Begin light enough to keep the torso still.', difficulty: 'beginner' },
+    { id: 'pl_lat_pulldown', name: 'Plate-Loaded Lat Pulldown', primary: ['lats'], secondary: ['biceps', 'mid_back'],
+      role: 'compound', pattern: 'vertical_pull', equipType: 'plate', repRange: [8, 12], sets: 3, restSec: 105, unilateral: true, increment: { lb: 5, kg: 2.5 },
+      cues: ['Lock thighs under the rollers', 'Drive elbows down', 'Control both independent arms'],
+      mistakes: ['Pulling behind the neck', 'Rocking the torso', 'Uneven plates'],
+      pickWeight: 'Use a load that allows a quiet controlled return.', difficulty: 'beginner' },
+    { id: 'pl_biceps_curl', name: 'Plate-Loaded Biceps Curl', primary: ['biceps'], secondary: ['forearms'],
+      role: 'accessory', pattern: 'curl', equipType: 'plate', repRange: [8, 15], sets: 3, restSec: 60, unilateral: true, increment: { lb: 5, kg: 2.5 },
+      cues: ['Keep upper arms on the pad', 'Curl without lifting the shoulders', 'Lower to a controlled stretch'],
+      mistakes: ['Elbows leaving the pad', 'Dropping the return', 'Uneven loading'],
+      pickWeight: 'Start light and make every return slower than the curl.', difficulty: 'beginner' },
+    { id: 'barbell_bench', name: 'Barbell Bench Press', primary: ['chest'], secondary: ['triceps', 'front_delts'],
+      role: 'compound', pattern: 'horizontal_press', equipType: 'barbell', repRange: [5, 10], sets: 3, restSec: 150, unilateral: false, increment: { lb: 5, kg: 2.5 },
+      cues: ['Use a spotter or correctly placed safeties', 'Touch softly at mid-to-lower chest', 'Press back over the shoulders'],
+      mistakes: ['Bouncing the bar', 'Wrists folded back', 'No safety plan'],
+      pickWeight: 'Learn the path with an empty bar before adding load.', difficulty: 'intermediate' },
+    { id: 'barbell_incline', name: 'Incline Barbell Bench Press', primary: ['chest'], secondary: ['front_delts', 'triceps'],
+      role: 'compound', pattern: 'incline_press', equipType: 'barbell', repRange: [5, 10], sets: 3, restSec: 150, unilateral: false, increment: { lb: 5, kg: 2.5 },
+      cues: ['Upper back stays pinned', 'Touch high on the chest', 'Press slightly back toward the rack'],
+      mistakes: ['Elbows flared to 90 degrees', 'Hips lifting', 'Unsafe unrack height'],
+      pickWeight: 'Use a spotter and start conservatively.', difficulty: 'intermediate' },
+    { id: 'barbell_decline', name: 'Decline Barbell Bench Press', primary: ['chest'], secondary: ['triceps', 'front_delts'],
+      role: 'compound', pattern: 'decline_press', equipType: 'barbell', repRange: [6, 12], sets: 3, restSec: 150, unilateral: false, increment: { lb: 5, kg: 2.5 },
+      cues: ['Secure both legs under the rollers', 'Touch the lower chest softly', 'Confirm both hooks on the re-rack'],
+      mistakes: ['Sliding on the bench', 'Bar drifting toward the face', 'Solo maximal attempts'],
+      pickWeight: 'Use a competent spotter for every challenging set.', difficulty: 'intermediate' },
+    { id: 'pullup', name: 'Pull-Up', primary: ['lats'], secondary: ['biceps', 'mid_back'],
+      role: 'compound', pattern: 'vertical_pull', equipType: 'bodyweight', repRange: [5, 10], sets: 3, restSec: 105, unilateral: false, increment: { lb: 0, kg: 0 },
+      cues: ['Begin long through the arms', 'Drive elbows toward the ribs', 'Lower without swinging'],
+      mistakes: ['Kipping', 'Neck reaching for the bar', 'Dropping from the top'],
+      pickWeight: 'Use assistance until every repetition is controlled.', difficulty: 'intermediate' },
+    { id: 'dip', name: 'Parallel-Bar Dip', primary: ['triceps'], secondary: ['chest', 'front_delts'],
+      role: 'compound', pattern: 'tri_press', equipType: 'bodyweight', repRange: [5, 10], sets: 3, restSec: 105, unilateral: false, increment: { lb: 0, kg: 0 },
+      cues: ['Depress the shoulders', 'Lower only as far as comfortable', 'Press without swinging'],
+      mistakes: ['Shoulders rolling forward', 'Dropping too deep', 'Kipping'],
+      pickWeight: 'Use the assisted machine if bodyweight control is not ready.', difficulty: 'intermediate' },
+    { id: 'back_extension', name: '45-Degree Back Extension', primary: ['lower_back'], secondary: ['glutes', 'hamstrings'],
+      role: 'accessory', pattern: 'hinge', equipType: 'bodyweight', repRange: [10, 15], sets: 3, restSec: 60, unilateral: false, increment: { lb: 5, kg: 2.5 },
+      cues: ['Pad ends below the hip crease', 'Hinge through the hips', 'Finish in a straight line'],
+      mistakes: ['Pad too high', 'Hyperextending the spine', 'Using momentum'],
+      pickWeight: 'Master bodyweight before holding a plate.', difficulty: 'beginner' },
+    { id: 'matrix_glute_trainer', name: 'Matrix Glute Trainer', primary: ['glutes'], secondary: ['hamstrings'],
+      role: 'accessory', pattern: 'hip_extension', equipType: 'selectorized', repRange: [10, 15], sets: 3, restSec: 75, unilateral: true, increment: { lb: 5, kg: 2.5 },
+      cues: ['Brace against the torso pad', 'Drive the working leg back from the hip', 'Keep the pelvis square'],
+      mistakes: ['Arching the lower back', 'Rotating the pelvis', 'Using momentum'],
+      pickWeight: 'Use a light load until the hip path feels stable.', difficulty: 'beginner' },
+    { id: 'booty_builder_hip_thrust', name: 'Booty Builder Hip Thrust', primary: ['glutes'], secondary: ['hamstrings'],
+      role: 'compound', pattern: 'hip_thrust', equipType: 'plate', repRange: [8, 15], sets: 3, restSec: 105, unilateral: false, increment: { lb: 10, kg: 5 },
+      cues: ['Center the pad across the hip crease', 'Drive through the full foot', 'Finish with ribs down'],
+      mistakes: ['Overextending the back', 'Feet too close or far', 'Uneven plates'],
+      pickWeight: 'Begin with the empty mechanism and record your foot setting.', difficulty: 'beginner' },
+    { id: 'hip_adduction', name: 'Hip Adduction Machine', primary: ['adductors'], secondary: ['glutes'],
+      role: 'accessory', pattern: 'adduction', equipType: 'selectorized', repRange: [12, 20], sets: 3, restSec: 60, unilateral: false, increment: { lb: 10, kg: 5 },
+      cues: ['Set a comfortable starting width', 'Bring the pads together smoothly', 'Control the return'],
+      mistakes: ['Confusing adduction with abduction', 'Bouncing from the wide position', 'Letting the stack slam'],
+      pickWeight: 'Choose a light pin and a pain-free hip range.', difficulty: 'beginner' },
+    { id: 'dead_bug', name: 'Dead Bug', primary: ['abs'], secondary: ['obliques'],
+      role: 'core', pattern: 'dead_bug', equipType: 'bodyweight', repRange: [6, 12], sets: 3, restSec: 45, unilateral: true, increment: { lb: 0, kg: 0 },
+      cues: ['Keep the low back gently against the mat', 'Reach opposite arm and leg slowly', 'Exhale as the limbs extend'],
+      mistakes: ['Back arching', 'Moving too fast', 'Holding the breath'],
+      pickWeight: 'Bodyweight. Shorten the lever to make it easier.', difficulty: 'beginner' },
+    { id: 'upper_body_ergometer', name: 'Upper-Body Ergometer', primary: [], secondary: [],
+      role: 'cardio', pattern: 'cardio', equipType: 'cardio', repRange: [0, 0], sets: 0, restSec: 0, unilateral: false, increment: { lb: 0, kg: 0 },
+      cues: ['Crank smooth circles', 'Keep shoulders relaxed', 'Increase resistance gradually'],
+      mistakes: ['Shrugging', 'Gripping too hard', 'Starting at high resistance'],
+      pickWeight: 'Start with 5–15 easy minutes.', difficulty: 'beginner' },
+    { id: 'recumbent_bike', name: 'Recumbent Bike', primary: [], secondary: [],
+      role: 'cardio', pattern: 'cardio', equipType: 'cardio', repRange: [0, 0], sets: 0, restSec: 0, unilateral: false, increment: { lb: 0, kg: 0 },
+      cues: ['Keep a small knee bend at full extension', 'Pedal smoothly', 'Maintain conversational effort'],
+      mistakes: ['Seat too close', 'Rocking the hips', 'Starting at high resistance'],
+      pickWeight: 'Start with 10 easy minutes and build duration first.', difficulty: 'beginner' }
   ];
+
+  var deprecated = {
+    sel_chest_press: true, sel_shoulder_press: true, hack_squat: true,
+    hip_abduction: true, seated_calf: true, elliptical_steady: true,
+    ab_crunch_machine: true, sel_seated_row: true
+  };
+  return list.map(function (exercise) {
+    var assistance = exercise.id === 'assisted_pullup' || exercise.id === 'assisted_dip';
+    var loadMode = assistance ? 'assistance' :
+      exercise.role === 'cardio' ? 'duration' :
+      exercise.equipType === 'dumbbell' ? 'perHand' :
+      exercise.equipType === 'plate' || exercise.equipType === 'smith' ? 'perSide' :
+      exercise.equipType === 'selectorized' || exercise.equipType === 'cable' ? 'stack' :
+      exercise.equipType === 'barbell' ? 'total' : 'bodyweight';
+    exercise.schemaVersion = 2;
+    exercise.availability = !deprecated[exercise.id];
+    exercise.deprecated = !!deprecated[exercise.id];
+    exercise.loadMode = loadMode;
+    exercise.movementPattern = exercise.pattern;
+    exercise.defaultRIR = 2;
+    exercise.prescription = { sets: exercise.sets, repRange: exercise.repRange.slice(), restSec: exercise.restSec };
+    return exercise;
+  });
 });
