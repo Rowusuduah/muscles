@@ -4,6 +4,9 @@
    unless you connect. Ported from the MoneyTrack sync pattern; reuses the same
    Google app (client id) with its own file, so the two never mix.
 
+   Reuses the time-tracker Google OAuth client (an OAuth client id is public —
+   it ships in client JS), with muscles' own Drive file, so the apps never mix.
+
    Browser global: MDRIVE. Also require()-able in Node for testing the pure
    decision logic — the factory touches no browser APIs at load time. */
 (function (root, factory) {
@@ -12,7 +15,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var CLIENT_ID = '394124622094-3cj4ho2ipp3m6pm0un09tg9knelhfqtu.apps.googleusercontent.com';
+  var CLIENT_ID = '624941578263-6kfuddkij39d7vactsnr1tpt6m13iqjk.apps.googleusercontent.com';
   var SCOPE     = 'https://www.googleapis.com/auth/drive.file';
   var FILENAME  = 'Muscles_Backup.json';
   var KEY_FILE      = 'muscles_gdrive_file_id';
