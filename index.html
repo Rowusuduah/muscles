@@ -54,10 +54,11 @@ h1.day{font-family:var(--disp);font-weight:700;font-size:clamp(40px,12vw,54px);l
 
 /* topbar */
 header{padding:calc(20px + env(safe-area-inset-top)) 0 6px}
-.topbar{display:flex;justify-content:space-between;align-items:center}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .brand{display:flex;align-items:center;gap:8px;font-family:var(--disp);font-weight:600;font-size:20px;letter-spacing:.03em}
 .brand .dot{width:9px;height:9px;border-radius:2px;background:var(--ember);box-shadow:0 0 12px var(--ember)}
 .date{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
+.head-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px}.theme-toggle{display:flex;align-items:center;justify-content:center;gap:6px;min-width:76px;min-height:44px;padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--chalk);font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em}.theme-toggle .theme-icon{font-size:15px;line-height:1;color:var(--ember)}
 .rankrow{display:flex;align-items:center;gap:12px;margin:16px 0 4px}
 .rank{flex:1}
 .rank .lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
@@ -321,6 +322,7 @@ nav.tabs .inner{max-width:980px}
 .choicegroup legend{width:100%;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 .choicegroup button{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--muted);padding:10px}
 .choicegroup button.on{color:var(--ember);border-color:var(--ember);background:var(--emberwash)}
+.schedule-panel{border-left:4px solid var(--full)}.schedule-picker{display:grid;gap:8px}.schedule-picker .choicegroup{margin:0}.schedule-picker>small{display:block;color:var(--muted);font-size:11px;line-height:1.45}.schedule-choice button{font-family:var(--disp);font-size:18px}.schedule-choice button span{display:block;font-family:var(--mono);font-size:8px;letter-spacing:.05em;text-transform:uppercase;margin-top:2px;color:inherit}
 .recommend b{font-family:var(--disp);font-size:20px;text-transform:uppercase}.result-count{font-family:var(--mono);font-size:10px;color:var(--muted);margin:-2px 0 10px}
 .program-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;padding:20px;border:1px solid color-mix(in srgb,var(--category) 55%,var(--line));border-left:5px solid var(--category);border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--category) 13%,var(--panel)),var(--panel));margin-bottom:18px}
 .program-hero h2{font-family:var(--disp);font-size:30px;line-height:1;text-transform:uppercase;margin:7px 0}.program-hero p{font-size:13px;color:var(--muted);margin:0;max-width:620px}.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ember);margin-right:7px}
@@ -351,7 +353,7 @@ nav.tabs .inner{max-width:980px}
 
 @media (max-width:700px){
   .wrap{max-width:560px}.eqgrid{grid-template-columns:1fr 1fr}.program-grid,.program-days{grid-template-columns:1fr}.learn-grid{grid-template-columns:1fr 1fr}.guide-photo{flex-basis:90vw}.photo-stage{height:64vw;min-height:280px}.muscle-block,.guide-section.split,.program-block,.phase-list{grid-template-columns:1fr}.program-hero{align-items:flex-start;flex-direction:column}.correction{grid-template-columns:1fr;gap:3px}.callout i{font-size:7px;max-width:95px}.howwrap{flex-direction:column}.demoblock,.demo{width:100%}.demo{height:260px}.demoblock{flex-basis:auto}.howfig{width:100%}.subin{flex-wrap:wrap}.subin .x{font-size:9px}.inline-field{align-items:stretch}.nickname-editor .inline-field{flex-direction:column}}
-@media (max-width:390px){.learn-grid{grid-template-columns:1fr}.eqcard img{height:112px}.callout i{display:block;font-size:6.5px;line-height:1.1;max-width:74px;white-space:normal;padding:3px 4px}.photo-stage{min-height:245px}.stats{gap:6px}.stat{padding:9px}.stat .v{font-size:22px}}
+@media (max-width:390px){.brand .eyebrow{display:none}.head-actions{gap:6px}.theme-toggle{min-width:68px;padding:7px 8px}.date{font-size:9px}.learn-grid{grid-template-columns:1fr}.eqcard img{height:112px}.callout i{display:block;font-size:6.5px;line-height:1.1;max-width:74px;white-space:normal;padding:3px 4px}.photo-stage{min-height:245px}.stats{gap:6px}.stat{padding:9px}.stat .v{font-size:22px}}
 
 :focus-visible{outline:2px solid var(--steel);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -364,7 +366,7 @@ nav.tabs .inner{max-width:980px}
   <header>
     <div class="topbar">
       <div class="brand"><span class="dot"></span>muscles <span class="eyebrow">Verified Gym Guide</span></div>
-      <div class="date" id="date">—</div>
+      <div class="head-actions"><button type="button" class="theme-toggle" id="theme-toggle" data-action="toggle-theme" aria-label="Switch to light mode" aria-pressed="false"><span class="theme-icon" aria-hidden="true">☀</span><span>Light</span></button><div class="date" id="date">—</div></div>
     </div>
     <div class="rankrow">
       <div class="rank"><div class="lab" id="ranklab">Consistency</div><div class="barwrap"><div class="bar" id="rankbar" style="width:0"></div></div></div>

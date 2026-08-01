@@ -59,6 +59,19 @@
     var resolved = mode === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : mode;
     document.documentElement.setAttribute('data-theme', resolved);
     document.querySelector('meta[name="theme-color"]').setAttribute('content', resolved === 'light' ? '#F2F0EA' : '#121417');
+    var toggle = document.getElementById('theme-toggle'), next = resolved === 'dark' ? 'light' : 'dark';
+    if (toggle) {
+      toggle.setAttribute('aria-label', 'Switch to ' + next + ' mode');
+      toggle.setAttribute('aria-pressed', resolved === 'light' ? 'true' : 'false');
+      toggle.setAttribute('title', 'Switch to ' + next + ' mode');
+      toggle.innerHTML = '<span class="theme-icon" aria-hidden="true">' + (resolved === 'dark' ? '☀' : '☾') + '</span><span>' + (resolved === 'dark' ? 'Light' : 'Dark') + '</span>';
+    }
+  }
+
+  function frequencyPicker() {
+    return '<div class="schedule-picker"><fieldset class="choicegroup schedule-choice"><legend>Training days per week</legend>' + [2, 3, 4].map(function (days) {
+      return '<button type="button" data-action="set-frequency" data-days="' + days + '" class="' + (cfg.weeklyFrequency === days ? 'on' : '') + '" aria-pressed="' + (cfg.weeklyFrequency === days) + '">' + days + '<span>day' + (days === 1 ? '' : 's') + '</span></button>';
+    }).join('') + '</fieldset><small>Change this anytime. If the current program does not fit your schedule, muscles selects the matching handbook program and keeps all history.</small></div>';
   }
 
   /* ---------- header ---------- */
@@ -484,6 +497,7 @@
     var programs = Object.keys(PROGRAM_REGISTRY.programs).map(function (id) { return PROGRAM_REGISTRY.programs[id]; });
     el.innerHTML = '<div class="eyebrow">Your training system</div><h1 class="day">Train</h1><p class="lede">The timer may fit a session to your day, but every exercise stays inside the program you selected.</p>' +
       '<div class="program-hero" style="--category:#C67A24"><div><span class="status-dot"></span><span class="eyebrow">Active · ' + cfg.weeklyFrequency + ' sessions/week</span><h2>' + esc(ACTIVE_PROGRAM.name) + '</h2><p>' + esc(ACTIVE_PROGRAM.description) + '</p></div><button class="mini" data-action="start-alone">Start next</button></div>' +
+      '<div class="panel schedule-panel">' + frequencyPicker() + '</div>' +
       '<h2 class="sec">Rotation</h2><div class="program-days">' + ACTIVE_PROGRAM.cycle.map(function (id, index) {
         var day = ACTIVE_PROGRAM.days[id]; var current = index === (plan.cycleIndex || 0) % ACTIVE_PROGRAM.cycle.length;
         return '<button class="weekrow ' + (current ? 'now' : '') + '" data-action="start-day" data-day="' + id + '"><span class="idx">' + (index + 1) + '</span><span class="nm">' + esc(day.name) + '</span><span class="mus">' + day.focusMuscles.slice(0, 3).map(function (m) { return esc(MU[m] ? MU[m].name : m); }).join(' · ') + '</span></button>';
@@ -703,6 +717,7 @@
       '<div class="learn-grid">' + Object.keys(LEARN_TOPICS).map(function (id) { var item = LEARN_TOPICS[id]; return '<button class="learn-card" data-action="learn-topic" data-topic="' + id + '" style="--category:' + item.color + '"><b>' + esc(item.title) + '</b><span>' + esc(item.summary) + '</span></button>'; }).join('') + '</div>' +
       '<h2 class="sec">Preferences & privacy</h2>' +
       '<div class="panel settings"><div><span class="fieldlabel">Theme</span><div class="unitpick">' + ['system', 'dark', 'light'].map(function (mode) { return '<button data-action="set-theme" data-theme="' + mode + '" class="' + (cfg.theme === mode ? 'on' : '') + '">' + mode + '</button>'; }).join('') + '</div></div>' +
+      '<div class="setting-row"><div style="width:100%">' + frequencyPicker() + '</div></div>' +
       '<div class="setting-row"><span><b>Units</b><small>Current display: ' + cfg.units + '</small></span><button class="mini" data-action="toggle-units">Switch to ' + (cfg.units === 'lb' ? 'kg' : 'lb') + '</button></div>' +
       '<div class="setting-row"><span><b>Advanced tools</b><small>Supersets and rest-pause; off by default for beginners.</small></span><button class="mini ' + (cfg.advanced ? 'busy' : '') + '" data-action="toggle-advanced" aria-pressed="' + cfg.advanced + '">' + (cfg.advanced ? 'On' : 'Off') + '</button></div>' +
       '<div class="setting-row"><span><b>Offline readiness</b><small id="offline-detail">Checking cached app shell…</small></span><span class="offline-badge" id="offline-badge">Checking</span></div></div>' +
@@ -816,6 +831,19 @@
       case 'pick-modality': SESSION.cardio.exId = d('data-ex'); renderCardio(); break;
       case 'log-cardio': saveCardio(); break;
       case 'select-program': { cfg.programId = d('data-program'); state.selectedProgram = cfg.programId; ACTIVE_PROGRAM = PROGRAM_REGISTRY.get(cfg.programId); if (ACTIVE_PROGRAM.sessionsPerRotation.indexOf(cfg.weeklyFrequency) < 0) cfg.weeklyFrequency = ACTIVE_PROGRAM.sessionsPerRotation[ACTIVE_PROGRAM.sessionsPerRotation.length - 1]; plan.cycleIndex = 0; persist(); renderTrain(); updateHeader(); toast('Program changed; workout history preserved'); break; }
+      case 'set-frequency': {
+        var requestedDays = +d('data-days'); if ([2, 3, 4].indexOf(requestedDays) < 0) break;
+        cfg.weeklyFrequency = requestedDays;
+        var switchedProgram = false;
+        if (ACTIVE_PROGRAM.sessionsPerRotation.indexOf(requestedDays) < 0) {
+          cfg.programId = PROGRAM_REGISTRY.recommend(cfg.experience, requestedDays);
+          state.selectedProgram = cfg.programId; ACTIVE_PROGRAM = PROGRAM_REGISTRY.get(cfg.programId);
+          plan.cycleIndex = 0; switchedProgram = true;
+        }
+        persist(); updateHeader(); routeFromHash();
+        toast(requestedDays + ' training days selected' + (switchedProgram ? ' · ' + ACTIVE_PROGRAM.name + ' selected; history preserved' : ' · history preserved'));
+        break;
+      }
       case 'equipment-filter': equipmentFilter = d('data-cat'); renderEquipment(); break;
       case 'open-eq': openEquipment(d('data-eq')); break;
       case 'save-eqname': { var v = ((document.getElementById('eqrename') || {}).value || '').trim(); var eid = d('data-eq'); if (v) eqNames[eid] = v; else delete eqNames[eid]; set('muscles-eqnames', eqNames); openEquipment(eid); toast('Personal nickname saved'); break; }
@@ -827,6 +855,13 @@
       case 'learn-back': history.replaceState(null, '', '#/learn'); renderLearn(); break;
       case 'toggle-units': cfg.units = cfg.units === 'lb' ? 'kg' : 'lb'; persist(); renderLearn(); toast('Now showing ' + cfg.units); break;
       case 'set-theme': cfg.theme = d('data-theme'); persist(); applyTheme(); renderLearn(); break;
+      case 'toggle-theme': {
+        cfg.theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        persist(); applyTheme();
+        if (!document.getElementById('s-learn').classList.contains('hidden') && location.hash === '#/learn') renderLearn();
+        toast((cfg.theme === 'light' ? 'Light' : 'Dark') + ' mode on');
+        break;
+      }
       case 'toggle-advanced': cfg.advanced = !cfg.advanced; persist(); renderLearn(); toast('Advanced tools ' + (cfg.advanced ? 'enabled' : 'hidden')); break;
       case 'export-backup': exportBackup(); break;
       case 'accept-reduction': { var rs = SESSION.built.slots[SESSION.idx]; rs.pre = L.acceptReduction(rs.pre); rs.log.forEach(function (x) { if (!x.done) x.weight = rs.pre.weight; }); renderActive(); toast('Reduction accepted for this exercise'); break; }

@@ -301,3 +301,12 @@ test('interactive app actions use semantic controls instead of clickable generic
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   assert.doesNotMatch(app, /<(?:div|span|li|article)\b[^>]*\bdata-action=/i);
 });
+
+test('theme and weekly training-day controls remain available after onboarding', () => {
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /id="theme-toggle"[^>]*data-action="toggle-theme"/);
+  assert.match(app, /data-action="set-frequency"/);
+  assert.match(app, /\[2, 3, 4\]/);
+  assert.match(app, /history preserved/);
+});
