@@ -133,7 +133,8 @@
         Object.keys(mark).filter(function (m) { return mark[m] === 'primary'; }).slice(0, 5).map(function (m) { return '<span class="chip">' + esc(MU[m] ? MU[m].name : m) + '</span>'; }).join('') +
         '</div></div></div>';
 
-    el.innerHTML = hero +
+    var gymBanner = '<div class="panel gym-banner"><div><span class="eyebrow">Training location</span><b>' + esc(activeGymName()) + '</b></div><button class="mini" data-action="gym-jump">Change</button></div>';
+    el.innerHTML = hero + gymBanner +
       '<button class="modebtn primary" data-action="start-alone"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M6 21c0-4 2.6-7 6-7s6 3 6 7"/></svg></span>' +
       '<span><span class="t">Start coached workout</span><span class="d">' + esc(ACTIVE_PROGRAM.name) + ' · ' + esc(day.name) + '</span></span></button>' +
       '<button class="modebtn" data-action="start-partner"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6M14.5 20c.2-2.6 1.8-4.4 4-4.4s3.3 1.4 3.5 4.4"/></svg></span>' +
@@ -900,6 +901,7 @@
         toast(requestedDays + ' training days selected' + (switchedProgram ? ' · ' + ACTIVE_PROGRAM.name + ' selected; history preserved' : ' · history preserved'));
         break;
       }
+      case 'gym-jump': showTab('equipment'); break;
       case 'select-gym': cfg.gymId = d('data-gym') === 'crunch' ? 'crunch' : 'home'; equipmentFilter = 'All'; equipmentQuery = ''; persist(); renderEquipment(); toast(activeGymName() + ' selected for workouts and substitutions'); break;
       case 'equipment-filter': equipmentFilter = d('data-cat'); renderEquipment(); break;
       case 'open-eq': openEquipment(d('data-eq')); break;
