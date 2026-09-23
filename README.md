@@ -1,12 +1,16 @@
 # muscles · Verified Gym Guide & Coach
 
-`muscles` is a private, phone-first strength coach and equipment handbook for one specific gym. It combines 45 verified equipment guides covering all 51 source photographs with adaptive workouts, logging, substitutions, partner sessions, animated demonstrations, history, and progress tracking.
+`muscles` is a private, phone-first strength coach and multi-gym equipment handbook. It preserves the original gym's 45 verified guides / 51 source photographs and adds a Crunch Fitness library built from a 140-photo equipment audit, with adaptive workouts, logging, gym-specific substitutions, partner sessions, animated demonstrations, history, progress tracking, and an indoor equipment-zone map.
 
 The signature Iron & Chalk dark theme is retained, with a system-aware light theme and manual override. The app works offline after installation; workout records never leave the device.
 
-## Verified handbook
+## Verified equipment libraries
 
-- Exactly 45 authoritative guides map all 51 photographs, including grouped alternate views and explicit filename traceability.
+- The original gym keeps exactly 45 authoritative guides mapping all 51 photographs, including grouped alternate views and explicit filename traceability.
+- Crunch Fitness adds 60 model-level guides derived from 140 unique canonical photos. Repeated sightings/angles are grouped instead of counted as extra equipment.
+- Crunch identities use readable equipment plaques when available. Ambiguous plate-loaded/cardio pieces are marked manual-only and excluded from automatic workout selection.
+- Every coached program slot has either a verified Crunch-compatible movement or a verified alternative from the program's existing substitution list.
+- Crunch includes a schematic zone map built from EXIF capture sequence, timestamps, camera direction, and visible adjacency. Indoor GPS is used only to anchor the venue because the photo audit's median horizontal error is about 22.6 m.
 - Disputed mappings are corrected conservatively: photos 3/4, 9/12, 44/45, 50, and 51.
 - No unsupported StepMill, elliptical, or hip-abduction catalog entries remain.
 - Each guide includes evidence and confidence, annotated photographs, adjustments, safety checks, execution phases, form corrections, programming, progression, alternatives, and source references.
@@ -24,15 +28,13 @@ The signature Iron & Chalk dark theme is retained, with a system-aware light the
 
 ## Run and validate
 
-Requires Node.js 20.19+.
+Requires Node.js 22.13+.
 
 ```powershell
-npm install
-npm run dev
-npm run validate
+npm test
 ```
 
-`npm run validate` runs the Node test suite, produces the Sites-compatible Vite/Worker build, and audits the output for all 51 equipment images, the service worker, the PDF, and the expected packaging files.
+The Node test suite covers the existing gym handbook and coaching logic plus Crunch inventory integrity, manual-only safeguards, zone-map metadata, exercise references, and full program-to-equipment coverage.
 
 ## Project structure
 
@@ -41,7 +43,8 @@ index.html                 App shell, themes, accessibility and responsive style
 app.js                     SPA routes, training, guides, progress, Learn and settings
 logic.js                   Pure session, progression, consistency and unit logic
 howto.js                   Equipment-aware, reduced-motion-safe code demonstrations
-data/handbook.js           Generated 45-guide/51-photo authoritative browser data
+data/handbook.js           Original gym's generated 45-guide/51-photo browser data
+data/crunch.js             Crunch 140-photo audit, 60 guides, mappings and schematic zone map
 data/exercises.js          Versioned active and deprecated exercise definitions
 data/program.js            Versioned program registry and warm-up prescriptions
 data/state.js              AppStateV2 migration and validated backup/restore
@@ -58,6 +61,6 @@ tools/                     Handbook export and acceptance validation scripts
 
 There is no account database, analytics upload, or cloud workout storage. App state is stored locally under schema version 2. Export creates a validated JSON backup; import previews a summary and replaces local state only after confirmation. Invalid or future-version backups are rejected without changing current data.
 
-The complete handbook is linked from Learn as `Complete_Gym_Equipment_Handbook_Revised.pdf`. It is intentionally cached only when the owner opens it online so the installation shell stays small.
+The original complete handbook is linked from Learn as `Complete_Gym_Equipment_Handbook_Revised.pdf`. Crunch guide data is part of the app shell; Crunch source photos are referenced from the user's Google Drive and therefore require network access unless already browser-cached.
 
 Exercise demonstration source photographs in `assets/demos/` derive from [free-exercise-db](https://github.com/yuhonas/free-exercise-db), released under the Unlicense. The generated OpenAI social artwork is `og.png`; the equipment photographs and handbook remain the user's private source material.

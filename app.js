@@ -3,7 +3,8 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
-  var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES), EQ = L.byId(EQUIPMENT), GUIDE = L.byId(HANDBOOK_GUIDES);
+  var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
+  var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
 
   /* ---------- storage ---------- */
@@ -47,7 +48,10 @@
   function wLbl(lb) { return lb == null ? '—' : L.toDisplay(lb, cfg.units) + ' ' + cfg.units; }
   function fmtDur(sec) { sec = Math.round(sec); return sec < 60 ? sec + 's' : Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2); }
   function toast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('show'); }, 2600); }
-  function machinesForEx(exId) { return EQUIPMENT.filter(function (e) { return (e.exerciseIds || []).indexOf(exId) >= 0; }); }
+  function activeEquipment() { return cfg && cfg.gymId === 'crunch' && window.CRUNCH_EQUIPMENT ? window.CRUNCH_EQUIPMENT : HOME_EQUIPMENT; }
+  function activeGuides() { return cfg && cfg.gymId === 'crunch' && window.CRUNCH_GUIDES ? window.CRUNCH_GUIDES : HOME_GUIDES; }
+  function activeGymName() { return cfg && cfg.gymId === 'crunch' ? 'Crunch Fitness' : 'Original gym'; }
+  function machinesForEx(exId) { return activeEquipment().filter(function (e) { return (e.exerciseIds || []).indexOf(exId) >= 0; }); }
   function nameOf(eq) { return eq ? (eqNames[eq.id] || eq.name) : ''; }
   function markFromMuscles(muscles, secondary) { var m = {}; (muscles || []).forEach(function (x) { m[x] = 'primary'; }); (secondary || []).forEach(function (x) { if (m[x] !== 'primary') m[x] = 'secondary'; }); return m; }
   function focusMark(focusMuscles, slots) {
@@ -129,7 +133,8 @@
         Object.keys(mark).filter(function (m) { return mark[m] === 'primary'; }).slice(0, 5).map(function (m) { return '<span class="chip">' + esc(MU[m] ? MU[m].name : m) + '</span>'; }).join('') +
         '</div></div></div>';
 
-    el.innerHTML = hero +
+    var gymBanner = '<div class="panel gym-banner"><div><span class="eyebrow">Training location</span><b>' + esc(activeGymName()) + '</b></div><button class="mini" data-action="gym-jump">Change</button></div>';
+    el.innerHTML = hero + gymBanner +
       '<button class="modebtn primary" data-action="start-alone"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M6 21c0-4 2.6-7 6-7s6 3 6 7"/></svg></span>' +
       '<span><span class="t">Start coached workout</span><span class="d">' + esc(ACTIVE_PROGRAM.name) + ' · ' + esc(day.name) + '</span></span></button>' +
       '<button class="modebtn" data-action="start-partner"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6M14.5 20c.2-2.6 1.8-4.4 4-4.4s3.3 1.4 3.5 4.4"/></svg></span>' +
@@ -155,12 +160,21 @@
         var day = ACTIVE_PROGRAM.days[d];
         var mus = day.focusMuscles.map(function (m) { return MU[m] ? MU[m].name : m; }).join(' · ');
         return '<button class="weekrow ' + (d === proposed ? 'now ' : '') + '" data-action="pick-focus" data-day="' + d + '"><span class="nm">' + esc(day.name) + '</span><span class="mus">' + esc(mus) + '</span></button>';
-      }).join('') + '<button class="weekrow cardio" data-action="start-cardio"><span class="nm">Optional cardio</span><span class="mus">Treadmill · recumbent bike · upper-body ergometer</span></button>' +
+      }).join('') + '<button class="weekrow cardio" data-action="start-cardio"><span class="nm">Optional cardio</span><span class="mus">' + (cfg.gymId === 'crunch' ? 'Verified Crunch cardio only' : 'Treadmill · recumbent bike · upper-body ergometer') + '</span></button>' +
       '<div style="height:8px"></div><button class="cta sub" data-action="cancel-session">Cancel</button>';
   }
   function buildAndStart(dayId) {
     SESSION.dayId = dayId;
-    if (dayId === 'cardio') { SESSION.phase = 'cardio'; SESSION.cardio = L.buildCardio(ACTIVE_PROGRAM, EX, SESSION.budgetMin); return renderSession(); }
+    if (dayId === 'cardio') {
+      SESSION.phase = 'cardio';
+      SESSION.cardio = L.buildCardio(ACTIVE_PROGRAM, EX, SESSION.budgetMin);
+      if (cfg.gymId === 'crunch') {
+        SESSION.cardio.modalities = SESSION.cardio.modalities.filter(function (id) { return machinesForEx(id).length > 0; });
+        if (!SESSION.cardio.modalities.length && EX.treadmill_steady && machinesForEx('treadmill_steady').length) SESSION.cardio.modalities = ['treadmill_steady'];
+        SESSION.cardio.exId = SESSION.cardio.modalities[0] || SESSION.cardio.exId;
+      }
+      return renderSession();
+    }
     SESSION.built = prepBuilt(L.buildSession(ACTIVE_PROGRAM, EX, dayId, SESSION.budgetMin, {}));
     SESSION.idx = 0; SESSION.phase = 'active'; renderSession();
   }
@@ -180,6 +194,7 @@
     var part = ACTIVE_PROGRAM.bodyParts.filter(function (p) { return p.id === SESSION.part; })[0];
     var q = (SESSION.query || '').toLowerCase();
     var pool = L.exercisesForBodyPart(part, EXERCISES);
+    if (cfg.gymId === 'crunch') pool = pool.filter(function (e) { return machinesForEx(e.id).length > 0; });
     if (q) pool = pool.filter(function (e) { return e.name.toLowerCase().indexOf(q) >= 0 || (machinesForEx(e.id)[0] && machinesForEx(e.id)[0].name.toLowerCase().indexOf(q) >= 0); });
     SESSION.picked = SESSION.picked || ACTIVE_PROGRAM.classic[SESSION.part].slice(0, 5);
     var picked = SESSION.picked;
@@ -214,6 +229,17 @@
   /* prepare a built session's per-slot working state */
   function prepBuilt(built) {
     built.slots.forEach(function (s, index) {
+      // Crunch sessions are constrained to equipment actually verified in the photo audit.
+      // If the programmed exercise is unavailable, preserve the role/sets and use the first
+      // verified alternative already defined by the program rather than inventing equipment.
+      if (cfg.gymId === 'crunch' && !machinesForEx(s.exId).length) {
+        var replacement = (s.alt || []).filter(function (id) { return EX[id] && machinesForEx(id).length; })[0];
+        if (replacement) {
+          s.gymSwapFrom = s.exId;
+          s.exId = replacement;
+          s.ex = EX[replacement];
+        }
+      }
       var pre = L.prescribe(s.ex, lifts[s.exId]);
       s.machineId = (machinesForEx(s.exId)[0] || {}).id || null;
       s.pre = pre; s.showHow = false; s.superEx = null; s.techniqueNote = '';
@@ -235,11 +261,12 @@
     var el = document.getElementById('s-today'), b = SESSION.built, s = b.slots[SESSION.idx];
     var mark = focusMark(b.focusMuscles, b.slots); var pr = sessionProgress();
     var pips = ''; for (var i = 0; i < Math.min(pr.total, 26); i++) pips += '<span class="pip' + (i < pr.done ? ' on' : '') + '"></span>';
-    var machines = machinesForEx(s.exId); var machSel = EQ[s.machineId] || machines[0];
+    var machines = machinesForEx(s.exId); var machSel = L.byId(machines)[s.machineId] || machines[0];
     var ex = s.ex;
 
+    var gymSwapNote = s.gymSwapFrom ? '<div class="coach-suggest"><span>Crunch availability swap: <b>' + esc(EX[s.gymSwapFrom] ? EX[s.gymSwapFrom].name : s.gymSwapFrom) + '</b> → <b>' + esc(ex.name) + '</b>.</span></div>' : '';
     var picker = machines.length ? '<div class="picker"><div class="lab">Pick your machine</div><div class="machopts">' +
-      machines.map(function (m) { return '<button class="macho ' + (m.id === s.machineId ? 'sel' : '') + '" data-action="pick-machine" data-machine="' + m.id + '" aria-pressed="' + (m.id === s.machineId) + '"><img src="' + m.photo + '" alt="' + esc(m.name) + '"><span class="nm">' + esc(m.name) + '</span></button>'; }).join('') + '</div>' +
+      machines.map(function (m) { return '<button class="macho ' + (m.id === s.machineId ? 'sel' : '') + '" data-action="pick-machine" data-machine="' + m.id + '" aria-pressed="' + (m.id === s.machineId) + '"><img src="' + m.photo + '" alt="' + esc(m.name) + '"><span class="nm">' + esc(m.name) + (cfg.gymId === 'crunch' && m.zoneId ? '<small>Zone · ' + esc(m.zoneId.replace(/-/g, ' ')) + '</small>' : '') + '</span></button>'; }).join('') + '</div>' +
       (machSel ? '<label class="fieldlabel compact" for="machinesetting">Machine setting <span>seat, pin or pad position</span></label><input class="search compact" id="machinesetting" data-machine-setting="' + esc(machSel.id) + '" value="' + esc(machineSettings[machSel.id] || '') + '" placeholder="Example: seat 4">' : '') +
       multiUse(machSel, s) + '</div>' : '';
 
@@ -247,6 +274,7 @@
     var target = '<div class="target"><span class="t">' + s.sets + ' × ' + ex.repRange[0] + '–' + ex.repRange[1] + ' · ' + tgt + '</span><span class="note">' + esc(s.pre.note) + '</span></div>' +
       (s.pre.mode === 'reduce_suggested' ? '<div class="coach-suggest"><span>Repeated misses, not one bad day. Reduction is optional.</span><button class="mini" data-action="accept-reduction">Use ' + wLbl(s.pre.suggestedWeight) + '</button></div>' : '');
 
+    target += gymSwapNote;
     var rows = s.log.map(function (x, i) { return setRow(x, i, s, ex); }).join('');
     var how = s.showHow ? howPanel(ex) : '';
     var last = (SESSION.idx + 1) >= b.slots.length;
@@ -376,7 +404,7 @@
   /* busy / swap */
   function busy() {
     var s = SESSION.built.slots[SESSION.idx];
-    var alts = L.busyAlternatives({ alt: s.alt }, EX, EQUIPMENT);
+    var alts = L.busyAlternatives({ alt: s.alt }, EX, activeEquipment());
     if (!alts.length) { toast('No alternative right now — try again in a minute'); return; }
     document.getElementById('s-today').insertAdjacentHTML('afterbegin',
       '<div class="panel fade" id="altpanel"><div class="tinfo"><div class="lab">Machine busy — swap to</div></div>' +
@@ -511,61 +539,80 @@
       }).join('') + '</div>';
   }
 
-  /* ---------- EQUIPMENT / 45 verified handbook guides ---------- */
-  var equipmentFilter = 'All', equipmentQuery = '';
+  /* ---------- EQUIPMENT / multi-gym verified guides ---------- */
+  var equipmentFilter = 'All', equipmentQuery = '', equipmentZoneFilter = 'All';
+  function crunchMapHtml() {
+    if (cfg.gymId !== 'crunch' || !window.CRUNCH_MAP) return '';
+    var map = window.CRUNCH_MAP;
+    return '<section class="panel gym-map"><div class="eyebrow">Equipment map · schematic / not to scale</div>' +
+      '<p class="lede" style="margin-bottom:12px">' + esc(map.method) + '</p>' +
+      '<div class="map-route"><button type="button" class="map-zone map-all ' + (equipmentZoneFilter === 'All' ? 'on' : '') + '" data-action="equipment-zone" data-zone="All"><span class="map-order">◎</span><div><b>All Crunch zones</b><small>Show the complete verified inventory</small></div></button>' + map.zones.map(function (z, i) {
+        return '<button type="button" class="map-zone ' + (equipmentZoneFilter === z.id ? 'on' : '') + '" data-action="equipment-zone" data-zone="' + esc(z.id) + '"><span class="map-order">' + (i + 1) + '</span><div><b>' + esc(z.name) + '</b><small>Photos ' + esc(z.ranges.join(', ')) + '</small><p>' + esc(z.note) + '</p></div></button>';
+      }).join('') + '</div>' +
+      '<p class="source-line">EXIF audit: ' + map.exif.photoCount + ' unique photos · median GPS horizontal error ' + map.exif.gpsMedianErrorM + ' m · range ' + map.exif.gpsMinErrorM + '–' + map.exif.gpsMaxErrorM + ' m. GPS is therefore used only to anchor the venue, not individual machines.</p></section>';
+  }
   function renderEquipment() {
     var el = document.getElementById('s-equipment');
+    var guides = activeGuides();
     var categories = ['All', 'Push', 'Pull', 'Legs', 'Core', 'Full Body', 'Cardio'];
     var q = equipmentQuery.trim().toLowerCase();
-    var list = HANDBOOK_GUIDES.filter(function (guide) {
+    var list = guides.filter(function (guide) {
       var inCategory = equipmentFilter === 'All' || guide.category === equipmentFilter;
-      var photoTerms = guide.photos.map(function (p) {
+      var photoTerms = (guide.photos || []).map(function (p) {
         var displayNumber = p.number === 0 ? 1 : p.number;
         return p.filename + ' photo ' + displayNumber + ' image ' + displayNumber + ' eq' + displayNumber;
       });
-      var haystack = [guide.identity, guide.purpose, guide.movementPattern].concat(guide.aliases || [], photoTerms).join(' ').toLowerCase();
-      return inCategory && (!q || haystack.indexOf(q) >= 0);
+      var haystack = [guide.identity, guide.purpose, guide.movementPattern, guide.zoneId || ''].concat(guide.aliases || [], photoTerms).join(' ').toLowerCase();
+      var inZone = equipmentZoneFilter === 'All' || guide.zoneId === equipmentZoneFilter;
+      return inCategory && inZone && (!q || haystack.indexOf(q) >= 0);
     });
-    el.innerHTML = '<div class="eyebrow">45 verified guides · 51 source files</div><h1 class="day">Equipment</h1><p class="lede">Every photo is mapped. Alternate angles stay together, and shared-room views are explicitly cross-referenced.</p>' +
-      '<label class="fieldlabel" for="eqsearch">Search by machine or filename</label><input class="search" id="eqsearch" value="' + esc(equipmentQuery) + '" placeholder="Try pulldown, photo 50, or cardio" oninput="window.__eqSearch(this.value)">' +
-      '<div class="bodyparts" aria-label="Equipment categories">' + categories.map(function (category) { return '<button class="bp ' + (category === equipmentFilter ? 'on' : '') + '" data-action="equipment-filter" data-cat="' + category + '" style="--category:' + (category === 'All' ? 'var(--ember)' : (HANDBOOK_GUIDES.filter(function (g) { return g.category === category; })[0] || {}).categoryColor) + '">' + category + '</button>'; }).join('') + '</div>' +
-      '<div class="result-count" aria-live="polite">' + list.length + ' guide' + (list.length === 1 ? '' : 's') + '</div>' +
+    var totalPhotos = cfg.gymId === 'crunch' && window.CRUNCH_GYM ? window.CRUNCH_GYM.photoCount : 51;
+    el.innerHTML = '<div class="eyebrow">' + guides.length + ' verified/model-level guides · ' + totalPhotos + ' source photos</div><h1 class="day">Equipment</h1>' +
+      '<div class="gym-switch" role="group" aria-label="Gym location"><button class="bp ' + (cfg.gymId !== 'crunch' ? 'on' : '') + '" data-action="select-gym" data-gym="home">Original gym</button><button class="bp ' + (cfg.gymId === 'crunch' ? 'on' : '') + '" data-action="select-gym" data-gym="crunch">Crunch Fitness</button></div>' +
+      '<p class="lede">' + (cfg.gymId === 'crunch' ? 'Crunch guides are built from the September 22 photo audit. Repeated sightings of the same model are grouped, and uncertain machines are not auto-prescribed.' : 'Every original-gym photo is mapped. Alternate angles stay together, and shared-room views are explicitly cross-referenced.') + '</p>' +
+      crunchMapHtml() +
+      '<label class="fieldlabel" for="eqsearch">Search by machine or filename</label><input class="search" id="eqsearch" value="' + esc(equipmentQuery) + '" placeholder="Try pulldown, chest press, or IMG_2147" oninput="window.__eqSearch(this.value)">' +
+      '<div class="bodyparts" aria-label="Equipment categories">' + categories.map(function (category) { var sample = guides.filter(function (g) { return g.category === category; })[0]; return '<button class="bp ' + (category === equipmentFilter ? 'on' : '') + '" data-action="equipment-filter" data-cat="' + category + '" style="--category:' + (category === 'All' ? 'var(--ember)' : (sample || {}).categoryColor) + '">' + category + '</button>'; }).join('') + '</div>' +
+      '<div class="result-count" aria-live="polite">' + list.length + ' guide' + (list.length === 1 ? '' : 's') + ' at ' + esc(activeGymName()) + '</div>' +
       '<div class="eqgrid">' + list.map(function (guide) {
-        var nickname = eqNames[guide.id];
-        return '<button class="eqcard verified" data-action="open-eq" data-eq="' + guide.id + '" style="--category:' + guide.categoryColor + '"><img src="' + guide.photos[0].webp + '" alt="' + esc(guide.photos[0].alt) + '"><span class="b"><span class="guide-label">' + esc(guide.category) + ' · Guide ' + String(guide.no).padStart(2, '0') + '</span><span class="nm">' + esc(guide.identity) + '</span>' + (nickname ? '<span class="nickname">“' + esc(nickname) + '”</span>' : '') + '<span class="ty">' + esc(guide.evidence.confidence) + ' confidence · ' + guide.photos.length + ' view' + (guide.photos.length === 1 ? '' : 's') + '</span></span></button>';
+        var nickname = eqNames[guide.id], firstPhoto = (guide.photos || [])[0] || {};
+        return '<button class="eqcard verified" data-action="open-eq" data-eq="' + guide.id + '" style="--category:' + guide.categoryColor + '">' +
+          (firstPhoto.webp ? '<img src="' + firstPhoto.webp + '" alt="' + esc(firstPhoto.alt || guide.identity) + '" loading="lazy">' : '<span class="shot ph">NO PHOTO</span>') +
+          '<span class="b"><span class="guide-label">' + esc(guide.category) + ' · ' + (guide.autoEligible === false ? 'Manual only' : 'Coach eligible') + '</span><span class="nm">' + esc(guide.identity) + '</span>' +
+          (nickname ? '<span class="nickname">“' + esc(nickname) + '”</span>' : '') +
+          '<span class="ty">' + esc(guide.evidence.confidence) + ' confidence · ' + (guide.photos || []).length + ' source view' + ((guide.photos || []).length === 1 ? '' : 's') + (guide.zoneId ? ' · ' + esc(guide.zoneId.replace(/-/g, ' ')) : '') + '</span></span></button>';
       }).join('') + '</div>';
   }
   window.__eqSearch = function (value) { equipmentQuery = value; renderEquipment(); var field = document.getElementById('eqsearch'); if (field) { field.focus(); field.setSelectionRange(value.length, value.length); } };
 
   function openEquipment(id) {
-    var guide = GUIDE[id] || HANDBOOK_GUIDES.filter(function (g) { return g.slug === id; })[0];
+    var guides = activeGuides(), equipmentIndex = L.byId(activeEquipment());
+    var guide = L.byId(guides)[id] || guides.filter(function (g) { return g.slug === id; })[0];
     if (!guide) return;
-    var e = EQ[guide.id], el = document.getElementById('s-equipment');
-    var callouts = guide.callouts.map(function (c) { return '<span class="callout ' + (c.x > 65 ? 'left' : '') + '" style="left:' + c.x + '%;top:' + c.y + '%" aria-label="Callout: ' + esc(c.label) + '"><i>' + esc(c.label) + '</i></span>'; }).join('');
-    var photos = guide.photos.map(function (photo, index) {
-      return '<figure class="guide-photo"><div class="photo-stage"><img src="' + photo.webp + '" alt="' + esc(photo.alt) + '">' + (index === 0 ? callouts : '') + '</div><figcaption>' + esc(photo.filename) + (photo.crossReference ? ' · cross-referenced view' : '') + '</figcaption></figure>';
+    var e = equipmentIndex[guide.id], el = document.getElementById('s-equipment');
+    var callouts = (guide.callouts || []).map(function (c) { return '<span class="callout ' + (c.x > 65 ? 'left' : '') + '" style="left:' + c.x + '%;top:' + c.y + '%" aria-label="Callout: ' + esc(c.label) + '"><i>' + esc(c.label) + '</i></span>'; }).join('');
+    var photos = (guide.photos || []).map(function (photo, index) {
+      return '<figure class="guide-photo"><div class="photo-stage"><img src="' + photo.webp + '" alt="' + esc(photo.alt) + '" loading="lazy">' + (index === 0 ? callouts : '') + '</div><figcaption>' + esc(photo.filename) + (photo.crossReference ? ' · cross-referenced view' : '') + '</figcaption></figure>';
     }).join('');
-    var steps = guide.execution.map(function (step, index) { return '<li><b>' + esc(step.phase) + '</b><span>' + esc(step.instruction) + '</span></li>'; }).join('');
-    var checks = guide.adjustmentsAndChecks.map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('');
-    var mistakes = guide.mistakes.map(function (item) { return '<div class="correction"><b>' + esc(item.mistake) + '</b><span>' + esc(item.correction) + '</span></div>'; }).join('');
+    var steps = (guide.execution || []).map(function (step) { return '<li><b>' + esc(step.phase) + '</b><span>' + esc(step.instruction) + '</span></li>'; }).join('');
+    var checks = (guide.adjustmentsAndChecks || []).map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('');
+    var mistakes = (guide.mistakes || []).map(function (item) { return '<div class="correction"><b>' + esc(item.mistake) + '</b><span>' + esc(item.correction) + '</span></div>'; }).join('');
     var nickname = eqNames[guide.id] || '';
-    el.innerHTML = '<button class="mini" data-action="equipment-back">‹ All 45 guides</button>' +
-      '<article class="guide-detail" style="--category:' + guide.categoryColor + '"><header class="guide-head"><span class="guide-label">' + esc(guide.category) + ' · Guide ' + String(guide.no).padStart(2, '0') + '</span><h1>' + esc(guide.identity) + '</h1>' + (nickname ? '<p class="nickname">Personal nickname · “' + esc(nickname) + '”</p>' : '') + '<p>' + esc(guide.purpose) + '</p><div class="guide-meta"><span>' + esc(guide.movementPattern) + '</span><span>' + esc(guide.difficulty) + '</span><span>' + esc(guide.evidence.confidence) + ' confidence</span></div></header>' +
+    el.innerHTML = '<button class="mini" data-action="equipment-back">‹ ' + esc(activeGymName()) + ' equipment</button>' +
+      '<article class="guide-detail" style="--category:' + guide.categoryColor + '"><header class="guide-head"><span class="guide-label">' + esc(guide.category) + ' · ' + esc(activeGymName()) + (guide.autoEligible === false ? ' · manual only' : ' · coach eligible') + '</span><h1>' + esc(guide.identity) + '</h1>' +
+      (nickname ? '<p class="nickname">Personal nickname · “' + esc(nickname) + '”</p>' : '') + '<p>' + esc(guide.purpose) + '</p><div class="guide-meta"><span>' + esc(guide.movementPattern) + '</span><span>' + esc(guide.difficulty) + '</span><span>' + esc(guide.evidence.confidence) + ' confidence</span>' + (guide.zoneId ? '<span>Zone · ' + esc(guide.zoneId.replace(/-/g, ' ')) + '</span>' : '') + '</div></header>' +
       '<div class="guide-carousel" aria-label="Source photo carousel">' + photos + '</div>' +
       '<div class="evidence"><span class="eyebrow">Identity evidence</span><p>' + esc(guide.evidence.summary) + '</p></div>' +
       '<section class="guide-section muscle-block"><div><span class="eyebrow">Primary</span><b>' + esc(guide.muscles.primary) + '</b></div><div><span class="eyebrow">Secondary</span><b>' + esc(guide.muscles.secondary) + '</b></div></section>' +
       '<section class="guide-section"><h2>Adjust & check</h2><ol class="checklist">' + checks + '</ol></section>' +
-      '<section class="guide-section"><h2>Start → movement → finish</h2><ol class="phase-list">' + steps + '</ol><div class="guide-cues">' + guide.cues.map(function (cue) { return '<span>' + esc(cue) + '</span>'; }).join('') + '</div></section>' +
+      '<section class="guide-section"><h2>Start → movement → finish</h2><ol class="phase-list">' + steps + '</ol><div class="guide-cues">' + (guide.cues || []).map(function (cue) { return '<span>' + esc(cue) + '</span>'; }).join('') + '</div></section>' +
       '<section class="guide-section split"><div><span class="eyebrow">Breathing</span><p>' + esc(guide.breathing) + '</p></div><div><span class="eyebrow">Tempo & range</span><p>' + esc(guide.tempo) + '. ' + esc(guide.rangeOfMotion) + '</p></div></section>' +
       '<section class="guide-section"><h2>Mistakes → corrections</h2>' + mistakes + '</section>' +
       '<aside class="safety-note"><span class="eyebrow">Safety</span><p>' + esc(guide.safety) + '</p><small>Stop if you feel sharp pain, chest pain, faintness, or unusual shortness of breath. This guide is education, not rehabilitation.</small></aside>' +
-      '<section class="guide-section program-block"><div><span class="eyebrow">Programming</span><p>' + esc(guide.programming) + '</p></div><div><span class="eyebrow">Progression</span><p>' + esc(guide.progression) + '</p></div><div><span class="eyebrow">Workout placement</span><p>' + esc(guide.workoutPlacement) + '</p></div><div><span class="eyebrow">Alternatives</span><p>' + guide.alternatives.map(esc).join(' · ') + '</p></div></section>' +
+      '<section class="guide-section program-block"><div><span class="eyebrow">Programming</span><p>' + esc(guide.programming) + '</p></div><div><span class="eyebrow">Progression</span><p>' + esc(guide.progression) + '</p></div><div><span class="eyebrow">Workout placement</span><p>' + esc(guide.workoutPlacement) + '</p></div><div><span class="eyebrow">Alternatives</span><p>' + ((guide.alternatives || []).length ? guide.alternatives.map(esc).join(' · ') : 'Use another coach-eligible machine for the same exercise or movement pattern.') + '</p></div></section>' +
       '<section class="guide-section nickname-editor"><label class="fieldlabel" for="eqrename">Personal nickname <span>optional · authoritative identity stays unchanged</span></label><div class="inline-field"><input class="search" id="eqrename" value="' + esc(nickname) + '" placeholder="Your name for this machine"><button class="mini" data-action="save-eqname" data-eq="' + guide.id + '">Save</button></div></section>' +
-      ((guide.linkedExerciseIds || []).length ? '<section class="guide-section"><h2>Linked exercise demos</h2>' + guide.linkedExerciseIds.map(function (xid) {
-        var ex = EX[xid]; if (!ex) return '';
-        var guidePrescription = ex.loadMode === 'duration' ? '5–30 min · continuous or intervals' : ex.repRange[0] + '–' + ex.repRange[1] + ' reps · ' + ex.sets + ' sets';
-        return '<div class="card"><div class="chead" style="padding:14px"><div><div class="cnum">' + esc(ex.primary.map(function (m) { return MU[m] ? MU[m].name : m; }).join(' + ')) + '</div><div class="cname">' + esc(ex.name) + '</div><div class="ctag">' + guidePrescription + '</div></div></div>' + howPanel(ex) + '</div>';
-      }).join('') + '</section>' : '') + '<p class="source-line">Source: Complete Gym Equipment Handbook · ' + guide.photos.map(function (p) { return esc(p.filename); }).join(' · ') + '</p></article>';
+      ((guide.linkedExerciseIds || []).length ? '<section class="guide-section"><h2>Linked exercise demos</h2>' + guide.linkedExerciseIds.map(function (xid) { var ex = EX[xid]; if (!ex) return ''; var gp = ex.loadMode === 'duration' ? '5–30 min · continuous or intervals' : ex.repRange[0] + '–' + ex.repRange[1] + ' reps · ' + ex.sets + ' sets'; return '<div class="card"><div class="chead" style="padding:14px"><div><div class="cnum">' + esc(ex.primary.map(function (m) { return MU[m] ? MU[m].name : m; }).join(' + ')) + '</div><div class="cname">' + esc(ex.name) + '</div><div class="ctag">' + gp + '</div></div></div>' + howPanel(ex) + '</div>'; }).join('') + '</section>' : '') +
+      '<p class="source-line">Source photos · ' + (guide.photos || []).map(function (p) { return esc(p.filename); }).join(' · ') + '</p></article>';
     if (location.hash !== '#/equipment/' + guide.slug) history.replaceState(null, '', '#/equipment/' + guide.slug);
   }
 
@@ -678,8 +725,8 @@
       ['Repeated misses', 'Only repeated below-range performance triggers an optional reduction suggestion of about 10 percent. You choose whether to accept it.'],
       ['Recover on purpose', 'If performance, motivation and soreness remain unusually poor, reduce load or volume temporarily and seek qualified advice for persistent symptoms.']
     ] },
-    cardio: { title: 'Cardio', color: '#16889E', summary: 'Use the three verified modalities without compromising strength work.', points: [
-      ['Easy aerobic work', 'Conversational treadmill walking, recumbent cycling or arm cranking can build aerobic capacity and support recovery.'],
+    cardio: { title: 'Cardio', color: '#16889E', summary: 'Use gym-verified cardio options without compromising strength work.', points: [
+      ['Easy aerobic work', 'Conversational treadmill walking and any other cardio modality verified at your selected gym can build aerobic capacity and support recovery.'],
       ['Progress duration first', 'Add weekly minutes before making large jumps in speed, incline, cadence or resistance. Warm up and cool down.'],
       ['Public-health context', 'Build toward the current U.S. physical-activity guidance over time; any amount is useful, and individual needs differ.']
     ] },
@@ -697,7 +744,7 @@
       ['What if a machine is busy?', 'Tap Busy? for a same-pattern alternative or requeue the exercise at the end. The coach keeps you inside the selected program.'],
       ['What if a setting hurts?', 'Stop, reduce the load and range, re-check the guide and choose a pain-free alternative. Persistent pain needs qualified assessment.'],
       ['Will changing programs erase history?', 'No. Program changes reset only the next-day rotation; all logs, lift history, settings and nicknames remain.'],
-      ['Can I use this offline?', 'Yes after the first successful load. The shell, verified guides, photos, fonts and demonstrations are precached; the large PDF caches only when opened online.']
+      ['Can I use this offline?', 'The app shell, coaching logic, original-gym guide assets, fonts and demonstrations are available offline after caching. Crunch guide data is local to the app shell, but its source photos currently load from your Google Drive and need network access unless the browser already cached them.']
     ] },
     references: { title: 'References', color: '#2E6FA7', summary: 'Authoritative guidance and manufacturer evidence used by the handbook.', points: [
       ['Training guidance', '<a href="https://acsm.org/resistance-training-guidelines-update-2026/" target="_blank" rel="noopener">ACSM resistance-training guidance update</a> · <a href="https://odphp.health.gov/our-work/nutrition-physical-activity/physical-activity-guidelines/current-guidelines" target="_blank" rel="noopener">U.S. Physical Activity Guidelines</a>'],
@@ -864,6 +911,9 @@
         toast(requestedDays + ' training days selected' + (switchedProgram ? ' · ' + ACTIVE_PROGRAM.name + ' selected; history preserved' : ' · history preserved'));
         break;
       }
+      case 'gym-jump': showTab('equipment'); break;
+      case 'select-gym': cfg.gymId = d('data-gym') === 'crunch' ? 'crunch' : 'home'; equipmentFilter = 'All'; equipmentZoneFilter = 'All'; equipmentQuery = ''; persist(); renderEquipment(); toast(activeGymName() + ' selected for workouts and substitutions'); break;
+      case 'equipment-zone': equipmentZoneFilter = d('data-zone') || 'All'; renderEquipment(); break;
       case 'equipment-filter': equipmentFilter = d('data-cat'); renderEquipment(); break;
       case 'open-eq': openEquipment(d('data-eq')); break;
       case 'save-eqname': { var v = ((document.getElementById('eqrename') || {}).value || '').trim(); var eid = d('data-eq'); if (v) eqNames[eid] = v; else delete eqNames[eid]; set('muscles-eqnames', eqNames); openEquipment(eid); toast('Personal nickname saved'); break; }
