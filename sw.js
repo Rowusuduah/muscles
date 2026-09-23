@@ -1,7 +1,7 @@
 /* muscles — update-safe offline service worker.
    HTML is network-first, the versioned shell is precached, and the large handbook
    PDF is cached only after the owner opens it online. */
-var CACHE = 'muscles-verified-v2-2026-08-01-r10';
+var CACHE = 'muscles-verified-v2-2026-09-23-r11';
 var PDF = 'Complete_Gym_Equipment_Handbook_Revised.pdf';
 var EQUIPMENT = Array.from({ length: 51 }, function (_, i) { return 'assets/equipment/eq' + (i + 1) + '.webp'; });
 var DEMO_IDS = [
@@ -13,7 +13,7 @@ var DEMOS = DEMO_IDS.reduce(function (all, id) {
 }, []);
 var SHELL = [
   './', 'index.html', 'app.js', 'logic.js', 'figure.js', 'howto.js', 'drive.js',
-  'data/muscles.js', 'data/exercises.js', 'data/handbook.js', 'data/equipment.js',
+  'data/muscles.js', 'data/exercises.js', 'data/handbook.js', 'data/equipment.js', 'data/crunch.js',
   'data/program.js', 'data/state.js', 'data/demos.js', 'manifest.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'og.png',
   'fonts/Oswald-Variable.ttf', 'fonts/IBMPlexMono-Regular.ttf',
