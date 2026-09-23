@@ -184,6 +184,7 @@
     var part = ACTIVE_PROGRAM.bodyParts.filter(function (p) { return p.id === SESSION.part; })[0];
     var q = (SESSION.query || '').toLowerCase();
     var pool = L.exercisesForBodyPart(part, EXERCISES);
+    if (cfg.gymId === 'crunch') pool = pool.filter(function (e) { return machinesForEx(e.id).length > 0; });
     if (q) pool = pool.filter(function (e) { return e.name.toLowerCase().indexOf(q) >= 0 || (machinesForEx(e.id)[0] && machinesForEx(e.id)[0].name.toLowerCase().indexOf(q) >= 0); });
     SESSION.picked = SESSION.picked || ACTIVE_PROGRAM.classic[SESSION.part].slice(0, 5);
     var picked = SESSION.picked;
@@ -218,6 +219,17 @@
   /* prepare a built session's per-slot working state */
   function prepBuilt(built) {
     built.slots.forEach(function (s, index) {
+      // Crunch sessions are constrained to equipment actually verified in the photo audit.
+      // If the programmed exercise is unavailable, preserve the role/sets and use the first
+      // verified alternative already defined by the program rather than inventing equipment.
+      if (cfg.gymId === 'crunch' && !machinesForEx(s.exId).length) {
+        var replacement = (s.alt || []).filter(function (id) { return EX[id] && machinesForEx(id).length; })[0];
+        if (replacement) {
+          s.gymSwapFrom = s.exId;
+          s.exId = replacement;
+          s.ex = EX[replacement];
+        }
+      }
       var pre = L.prescribe(s.ex, lifts[s.exId]);
       s.machineId = (machinesForEx(s.exId)[0] || {}).id || null;
       s.pre = pre; s.showHow = false; s.superEx = null; s.techniqueNote = '';
@@ -242,6 +254,7 @@
     var machines = machinesForEx(s.exId); var machSel = L.byId(machines)[s.machineId] || machines[0];
     var ex = s.ex;
 
+    var gymSwapNote = s.gymSwapFrom ? '<div class="coach-suggest"><span>Crunch availability swap: <b>' + esc(EX[s.gymSwapFrom] ? EX[s.gymSwapFrom].name : s.gymSwapFrom) + '</b> → <b>' + esc(ex.name) + '</b>.</span></div>' : '';
     var picker = machines.length ? '<div class="picker"><div class="lab">Pick your machine</div><div class="machopts">' +
       machines.map(function (m) { return '<button class="macho ' + (m.id === s.machineId ? 'sel' : '') + '" data-action="pick-machine" data-machine="' + m.id + '" aria-pressed="' + (m.id === s.machineId) + '"><img src="' + m.photo + '" alt="' + esc(m.name) + '"><span class="nm">' + esc(m.name) + '</span></button>'; }).join('') + '</div>' +
       (machSel ? '<label class="fieldlabel compact" for="machinesetting">Machine setting <span>seat, pin or pad position</span></label><input class="search compact" id="machinesetting" data-machine-setting="' + esc(machSel.id) + '" value="' + esc(machineSettings[machSel.id] || '') + '" placeholder="Example: seat 4">' : '') +
@@ -251,6 +264,7 @@
     var target = '<div class="target"><span class="t">' + s.sets + ' × ' + ex.repRange[0] + '–' + ex.repRange[1] + ' · ' + tgt + '</span><span class="note">' + esc(s.pre.note) + '</span></div>' +
       (s.pre.mode === 'reduce_suggested' ? '<div class="coach-suggest"><span>Repeated misses, not one bad day. Reduction is optional.</span><button class="mini" data-action="accept-reduction">Use ' + wLbl(s.pre.suggestedWeight) + '</button></div>' : '');
 
+    target += gymSwapNote;
     var rows = s.log.map(function (x, i) { return setRow(x, i, s, ex); }).join('');
     var how = s.showHow ? howPanel(ex) : '';
     var last = (SESSION.idx + 1) >= b.slots.length;
