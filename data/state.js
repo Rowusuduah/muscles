@@ -25,7 +25,7 @@
       config: {
         name: '', units: 'lb', figure: 'male', start: todayISO(), onboarded: false,
         experience: 'beginner', weeklyFrequency: 3, programId: 'beginner_full_body',
-        theme: 'system', advanced: false
+        theme: 'system', advanced: false, gymId: 'home'
       },
       selectedProgram: 'beginner_full_body',
       programRotation: { cycleIndex: 0, sessionCount: 0, calibrated: false },
@@ -46,6 +46,7 @@
     base.config.weeklyFrequency = Math.max(2, Math.min(7, Number(base.config.weeklyFrequency) || 3));
     base.config.experience = base.config.experience === 'intermediate' ? 'intermediate' : 'beginner';
     base.config.theme = ['system', 'dark', 'light'].indexOf(base.config.theme) >= 0 ? base.config.theme : 'system';
+    base.config.gymId = base.config.gymId === 'crunch' ? 'crunch' : 'home';
     var requestedProgram = state.selectedProgram || base.config.programId;
     var selected = programRegistry && programRegistry.programs && programRegistry.programs[requestedProgram] ? requestedProgram :
       (programRegistry && programRegistry.recommend ? programRegistry.recommend(base.config.experience, base.config.weeklyFrequency) : 'beginner_full_body');
