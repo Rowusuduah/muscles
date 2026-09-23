@@ -3,7 +3,8 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
-  var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES), EQ = L.byId(EQUIPMENT), GUIDE = L.byId(HANDBOOK_GUIDES);
+  var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
+  var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
 
   /* ---------- storage ---------- */
@@ -47,7 +48,10 @@
   function wLbl(lb) { return lb == null ? '—' : L.toDisplay(lb, cfg.units) + ' ' + cfg.units; }
   function fmtDur(sec) { sec = Math.round(sec); return sec < 60 ? sec + 's' : Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2); }
   function toast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('show'); }, 2600); }
-  function machinesForEx(exId) { return EQUIPMENT.filter(function (e) { return (e.exerciseIds || []).indexOf(exId) >= 0; }); }
+  function activeEquipment() { return cfg && cfg.gymId === 'crunch' && window.CRUNCH_EQUIPMENT ? window.CRUNCH_EQUIPMENT : HOME_EQUIPMENT; }
+  function activeGuides() { return cfg && cfg.gymId === 'crunch' && window.CRUNCH_GUIDES ? window.CRUNCH_GUIDES : HOME_GUIDES; }
+  function activeGymName() { return cfg && cfg.gymId === 'crunch' ? 'Crunch Fitness' : 'Original gym'; }
+  function machinesForEx(exId) { return activeEquipment().filter(function (e) { return (e.exerciseIds || []).indexOf(exId) >= 0; }); }
   function nameOf(eq) { return eq ? (eqNames[eq.id] || eq.name) : ''; }
   function markFromMuscles(muscles, secondary) { var m = {}; (muscles || []).forEach(function (x) { m[x] = 'primary'; }); (secondary || []).forEach(function (x) { if (m[x] !== 'primary') m[x] = 'secondary'; }); return m; }
   function focusMark(focusMuscles, slots) {
@@ -235,7 +239,7 @@
     var el = document.getElementById('s-today'), b = SESSION.built, s = b.slots[SESSION.idx];
     var mark = focusMark(b.focusMuscles, b.slots); var pr = sessionProgress();
     var pips = ''; for (var i = 0; i < Math.min(pr.total, 26); i++) pips += '<span class="pip' + (i < pr.done ? ' on' : '') + '"></span>';
-    var machines = machinesForEx(s.exId); var machSel = EQ[s.machineId] || machines[0];
+    var machines = machinesForEx(s.exId); var machSel = L.byId(machines)[s.machineId] || machines[0];
     var ex = s.ex;
 
     var picker = machines.length ? '<div class="picker"><div class="lab">Pick your machine</div><div class="machopts">' +
@@ -376,7 +380,7 @@
   /* busy / swap */
   function busy() {
     var s = SESSION.built.slots[SESSION.idx];
-    var alts = L.busyAlternatives({ alt: s.alt }, EX, EQUIPMENT);
+    var alts = L.busyAlternatives({ alt: s.alt }, EX, activeEquipment());
     if (!alts.length) { toast('No alternative right now — try again in a minute'); return; }
     document.getElementById('s-today').insertAdjacentHTML('afterbegin',
       '<div class="panel fade" id="altpanel"><div class="tinfo"><div class="lab">Machine busy — swap to</div></div>' +
@@ -511,61 +515,79 @@
       }).join('') + '</div>';
   }
 
-  /* ---------- EQUIPMENT / 45 verified handbook guides ---------- */
+  /* ---------- EQUIPMENT / multi-gym verified guides ---------- */
   var equipmentFilter = 'All', equipmentQuery = '';
+  function crunchMapHtml() {
+    if (cfg.gymId !== 'crunch' || !window.CRUNCH_MAP) return '';
+    var map = window.CRUNCH_MAP;
+    return '<section class="panel gym-map"><div class="eyebrow">Equipment map · schematic / not to scale</div>' +
+      '<p class="lede" style="margin-bottom:12px">' + esc(map.method) + '</p>' +
+      '<div class="map-route">' + map.zones.map(function (z, i) {
+        return '<div class="map-zone"><span class="map-order">' + (i + 1) + '</span><div><b>' + esc(z.name) + '</b><small>Photos ' + esc(z.ranges.join(', ')) + '</small><p>' + esc(z.note) + '</p></div></div>';
+      }).join('') + '</div>' +
+      '<p class="source-line">EXIF audit: ' + map.exif.photoCount + ' unique photos · median GPS horizontal error ' + map.exif.gpsMedianErrorM + ' m · range ' + map.exif.gpsMinErrorM + '–' + map.exif.gpsMaxErrorM + ' m. GPS is therefore used only to anchor the venue, not individual machines.</p></section>';
+  }
   function renderEquipment() {
     var el = document.getElementById('s-equipment');
+    var guides = activeGuides();
     var categories = ['All', 'Push', 'Pull', 'Legs', 'Core', 'Full Body', 'Cardio'];
     var q = equipmentQuery.trim().toLowerCase();
-    var list = HANDBOOK_GUIDES.filter(function (guide) {
+    var list = guides.filter(function (guide) {
       var inCategory = equipmentFilter === 'All' || guide.category === equipmentFilter;
-      var photoTerms = guide.photos.map(function (p) {
+      var photoTerms = (guide.photos || []).map(function (p) {
         var displayNumber = p.number === 0 ? 1 : p.number;
         return p.filename + ' photo ' + displayNumber + ' image ' + displayNumber + ' eq' + displayNumber;
       });
-      var haystack = [guide.identity, guide.purpose, guide.movementPattern].concat(guide.aliases || [], photoTerms).join(' ').toLowerCase();
+      var haystack = [guide.identity, guide.purpose, guide.movementPattern, guide.zoneId || ''].concat(guide.aliases || [], photoTerms).join(' ').toLowerCase();
       return inCategory && (!q || haystack.indexOf(q) >= 0);
     });
-    el.innerHTML = '<div class="eyebrow">45 verified guides · 51 source files</div><h1 class="day">Equipment</h1><p class="lede">Every photo is mapped. Alternate angles stay together, and shared-room views are explicitly cross-referenced.</p>' +
-      '<label class="fieldlabel" for="eqsearch">Search by machine or filename</label><input class="search" id="eqsearch" value="' + esc(equipmentQuery) + '" placeholder="Try pulldown, photo 50, or cardio" oninput="window.__eqSearch(this.value)">' +
-      '<div class="bodyparts" aria-label="Equipment categories">' + categories.map(function (category) { return '<button class="bp ' + (category === equipmentFilter ? 'on' : '') + '" data-action="equipment-filter" data-cat="' + category + '" style="--category:' + (category === 'All' ? 'var(--ember)' : (HANDBOOK_GUIDES.filter(function (g) { return g.category === category; })[0] || {}).categoryColor) + '">' + category + '</button>'; }).join('') + '</div>' +
-      '<div class="result-count" aria-live="polite">' + list.length + ' guide' + (list.length === 1 ? '' : 's') + '</div>' +
+    var totalPhotos = cfg.gymId === 'crunch' && window.CRUNCH_GYM ? window.CRUNCH_GYM.photoCount : 51;
+    el.innerHTML = '<div class="eyebrow">' + guides.length + ' verified/model-level guides · ' + totalPhotos + ' source photos</div><h1 class="day">Equipment</h1>' +
+      '<div class="gym-switch" role="group" aria-label="Gym location"><button class="bp ' + (cfg.gymId !== 'crunch' ? 'on' : '') + '" data-action="select-gym" data-gym="home">Original gym</button><button class="bp ' + (cfg.gymId === 'crunch' ? 'on' : '') + '" data-action="select-gym" data-gym="crunch">Crunch Fitness</button></div>' +
+      '<p class="lede">' + (cfg.gymId === 'crunch' ? 'Crunch guides are built from the September 22 photo audit. Repeated sightings of the same model are grouped, and uncertain machines are not auto-prescribed.' : 'Every original-gym photo is mapped. Alternate angles stay together, and shared-room views are explicitly cross-referenced.') + '</p>' +
+      crunchMapHtml() +
+      '<label class="fieldlabel" for="eqsearch">Search by machine or filename</label><input class="search" id="eqsearch" value="' + esc(equipmentQuery) + '" placeholder="Try pulldown, chest press, or IMG_2147" oninput="window.__eqSearch(this.value)">' +
+      '<div class="bodyparts" aria-label="Equipment categories">' + categories.map(function (category) { var sample = guides.filter(function (g) { return g.category === category; })[0]; return '<button class="bp ' + (category === equipmentFilter ? 'on' : '') + '" data-action="equipment-filter" data-cat="' + category + '" style="--category:' + (category === 'All' ? 'var(--ember)' : (sample || {}).categoryColor) + '">' + category + '</button>'; }).join('') + '</div>' +
+      '<div class="result-count" aria-live="polite">' + list.length + ' guide' + (list.length === 1 ? '' : 's') + ' at ' + esc(activeGymName()) + '</div>' +
       '<div class="eqgrid">' + list.map(function (guide) {
-        var nickname = eqNames[guide.id];
-        return '<button class="eqcard verified" data-action="open-eq" data-eq="' + guide.id + '" style="--category:' + guide.categoryColor + '"><img src="' + guide.photos[0].webp + '" alt="' + esc(guide.photos[0].alt) + '"><span class="b"><span class="guide-label">' + esc(guide.category) + ' · Guide ' + String(guide.no).padStart(2, '0') + '</span><span class="nm">' + esc(guide.identity) + '</span>' + (nickname ? '<span class="nickname">“' + esc(nickname) + '”</span>' : '') + '<span class="ty">' + esc(guide.evidence.confidence) + ' confidence · ' + guide.photos.length + ' view' + (guide.photos.length === 1 ? '' : 's') + '</span></span></button>';
+        var nickname = eqNames[guide.id], firstPhoto = (guide.photos || [])[0] || {};
+        return '<button class="eqcard verified" data-action="open-eq" data-eq="' + guide.id + '" style="--category:' + guide.categoryColor + '">' +
+          (firstPhoto.webp ? '<img src="' + firstPhoto.webp + '" alt="' + esc(firstPhoto.alt || guide.identity) + '" loading="lazy">' : '<span class="shot ph">NO PHOTO</span>') +
+          '<span class="b"><span class="guide-label">' + esc(guide.category) + ' · ' + (guide.autoEligible === false ? 'Manual only' : 'Coach eligible') + '</span><span class="nm">' + esc(guide.identity) + '</span>' +
+          (nickname ? '<span class="nickname">“' + esc(nickname) + '”</span>' : '') +
+          '<span class="ty">' + esc(guide.evidence.confidence) + ' confidence · ' + (guide.photos || []).length + ' source view' + ((guide.photos || []).length === 1 ? '' : 's') + (guide.zoneId ? ' · ' + esc(guide.zoneId.replace(/-/g, ' ')) : '') + '</span></span></button>';
       }).join('') + '</div>';
   }
   window.__eqSearch = function (value) { equipmentQuery = value; renderEquipment(); var field = document.getElementById('eqsearch'); if (field) { field.focus(); field.setSelectionRange(value.length, value.length); } };
 
   function openEquipment(id) {
-    var guide = GUIDE[id] || HANDBOOK_GUIDES.filter(function (g) { return g.slug === id; })[0];
+    var guides = activeGuides(), equipmentIndex = L.byId(activeEquipment());
+    var guide = L.byId(guides)[id] || guides.filter(function (g) { return g.slug === id; })[0];
     if (!guide) return;
-    var e = EQ[guide.id], el = document.getElementById('s-equipment');
-    var callouts = guide.callouts.map(function (c) { return '<span class="callout ' + (c.x > 65 ? 'left' : '') + '" style="left:' + c.x + '%;top:' + c.y + '%" aria-label="Callout: ' + esc(c.label) + '"><i>' + esc(c.label) + '</i></span>'; }).join('');
-    var photos = guide.photos.map(function (photo, index) {
-      return '<figure class="guide-photo"><div class="photo-stage"><img src="' + photo.webp + '" alt="' + esc(photo.alt) + '">' + (index === 0 ? callouts : '') + '</div><figcaption>' + esc(photo.filename) + (photo.crossReference ? ' · cross-referenced view' : '') + '</figcaption></figure>';
+    var e = equipmentIndex[guide.id], el = document.getElementById('s-equipment');
+    var callouts = (guide.callouts || []).map(function (c) { return '<span class="callout ' + (c.x > 65 ? 'left' : '') + '" style="left:' + c.x + '%;top:' + c.y + '%" aria-label="Callout: ' + esc(c.label) + '"><i>' + esc(c.label) + '</i></span>'; }).join('');
+    var photos = (guide.photos || []).map(function (photo, index) {
+      return '<figure class="guide-photo"><div class="photo-stage"><img src="' + photo.webp + '" alt="' + esc(photo.alt) + '" loading="lazy">' + (index === 0 ? callouts : '') + '</div><figcaption>' + esc(photo.filename) + (photo.crossReference ? ' · cross-referenced view' : '') + '</figcaption></figure>';
     }).join('');
-    var steps = guide.execution.map(function (step, index) { return '<li><b>' + esc(step.phase) + '</b><span>' + esc(step.instruction) + '</span></li>'; }).join('');
-    var checks = guide.adjustmentsAndChecks.map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('');
-    var mistakes = guide.mistakes.map(function (item) { return '<div class="correction"><b>' + esc(item.mistake) + '</b><span>' + esc(item.correction) + '</span></div>'; }).join('');
+    var steps = (guide.execution || []).map(function (step) { return '<li><b>' + esc(step.phase) + '</b><span>' + esc(step.instruction) + '</span></li>'; }).join('');
+    var checks = (guide.adjustmentsAndChecks || []).map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('');
+    var mistakes = (guide.mistakes || []).map(function (item) { return '<div class="correction"><b>' + esc(item.mistake) + '</b><span>' + esc(item.correction) + '</span></div>'; }).join('');
     var nickname = eqNames[guide.id] || '';
-    el.innerHTML = '<button class="mini" data-action="equipment-back">‹ All 45 guides</button>' +
-      '<article class="guide-detail" style="--category:' + guide.categoryColor + '"><header class="guide-head"><span class="guide-label">' + esc(guide.category) + ' · Guide ' + String(guide.no).padStart(2, '0') + '</span><h1>' + esc(guide.identity) + '</h1>' + (nickname ? '<p class="nickname">Personal nickname · “' + esc(nickname) + '”</p>' : '') + '<p>' + esc(guide.purpose) + '</p><div class="guide-meta"><span>' + esc(guide.movementPattern) + '</span><span>' + esc(guide.difficulty) + '</span><span>' + esc(guide.evidence.confidence) + ' confidence</span></div></header>' +
+    el.innerHTML = '<button class="mini" data-action="equipment-back">‹ ' + esc(activeGymName()) + ' equipment</button>' +
+      '<article class="guide-detail" style="--category:' + guide.categoryColor + '"><header class="guide-head"><span class="guide-label">' + esc(guide.category) + ' · ' + esc(activeGymName()) + (guide.autoEligible === false ? ' · manual only' : ' · coach eligible') + '</span><h1>' + esc(guide.identity) + '</h1>' +
+      (nickname ? '<p class="nickname">Personal nickname · “' + esc(nickname) + '”</p>' : '') + '<p>' + esc(guide.purpose) + '</p><div class="guide-meta"><span>' + esc(guide.movementPattern) + '</span><span>' + esc(guide.difficulty) + '</span><span>' + esc(guide.evidence.confidence) + ' confidence</span>' + (guide.zoneId ? '<span>Zone · ' + esc(guide.zoneId.replace(/-/g, ' ')) + '</span>' : '') + '</div></header>' +
       '<div class="guide-carousel" aria-label="Source photo carousel">' + photos + '</div>' +
       '<div class="evidence"><span class="eyebrow">Identity evidence</span><p>' + esc(guide.evidence.summary) + '</p></div>' +
       '<section class="guide-section muscle-block"><div><span class="eyebrow">Primary</span><b>' + esc(guide.muscles.primary) + '</b></div><div><span class="eyebrow">Secondary</span><b>' + esc(guide.muscles.secondary) + '</b></div></section>' +
       '<section class="guide-section"><h2>Adjust & check</h2><ol class="checklist">' + checks + '</ol></section>' +
-      '<section class="guide-section"><h2>Start → movement → finish</h2><ol class="phase-list">' + steps + '</ol><div class="guide-cues">' + guide.cues.map(function (cue) { return '<span>' + esc(cue) + '</span>'; }).join('') + '</div></section>' +
+      '<section class="guide-section"><h2>Start → movement → finish</h2><ol class="phase-list">' + steps + '</ol><div class="guide-cues">' + (guide.cues || []).map(function (cue) { return '<span>' + esc(cue) + '</span>'; }).join('') + '</div></section>' +
       '<section class="guide-section split"><div><span class="eyebrow">Breathing</span><p>' + esc(guide.breathing) + '</p></div><div><span class="eyebrow">Tempo & range</span><p>' + esc(guide.tempo) + '. ' + esc(guide.rangeOfMotion) + '</p></div></section>' +
       '<section class="guide-section"><h2>Mistakes → corrections</h2>' + mistakes + '</section>' +
       '<aside class="safety-note"><span class="eyebrow">Safety</span><p>' + esc(guide.safety) + '</p><small>Stop if you feel sharp pain, chest pain, faintness, or unusual shortness of breath. This guide is education, not rehabilitation.</small></aside>' +
-      '<section class="guide-section program-block"><div><span class="eyebrow">Programming</span><p>' + esc(guide.programming) + '</p></div><div><span class="eyebrow">Progression</span><p>' + esc(guide.progression) + '</p></div><div><span class="eyebrow">Workout placement</span><p>' + esc(guide.workoutPlacement) + '</p></div><div><span class="eyebrow">Alternatives</span><p>' + guide.alternatives.map(esc).join(' · ') + '</p></div></section>' +
+      '<section class="guide-section program-block"><div><span class="eyebrow">Programming</span><p>' + esc(guide.programming) + '</p></div><div><span class="eyebrow">Progression</span><p>' + esc(guide.progression) + '</p></div><div><span class="eyebrow">Workout placement</span><p>' + esc(guide.workoutPlacement) + '</p></div><div><span class="eyebrow">Alternatives</span><p>' + ((guide.alternatives || []).length ? guide.alternatives.map(esc).join(' · ') : 'Use another coach-eligible machine for the same exercise or movement pattern.') + '</p></div></section>' +
       '<section class="guide-section nickname-editor"><label class="fieldlabel" for="eqrename">Personal nickname <span>optional · authoritative identity stays unchanged</span></label><div class="inline-field"><input class="search" id="eqrename" value="' + esc(nickname) + '" placeholder="Your name for this machine"><button class="mini" data-action="save-eqname" data-eq="' + guide.id + '">Save</button></div></section>' +
-      ((guide.linkedExerciseIds || []).length ? '<section class="guide-section"><h2>Linked exercise demos</h2>' + guide.linkedExerciseIds.map(function (xid) {
-        var ex = EX[xid]; if (!ex) return '';
-        var guidePrescription = ex.loadMode === 'duration' ? '5–30 min · continuous or intervals' : ex.repRange[0] + '–' + ex.repRange[1] + ' reps · ' + ex.sets + ' sets';
-        return '<div class="card"><div class="chead" style="padding:14px"><div><div class="cnum">' + esc(ex.primary.map(function (m) { return MU[m] ? MU[m].name : m; }).join(' + ')) + '</div><div class="cname">' + esc(ex.name) + '</div><div class="ctag">' + guidePrescription + '</div></div></div>' + howPanel(ex) + '</div>';
-      }).join('') + '</section>' : '') + '<p class="source-line">Source: Complete Gym Equipment Handbook · ' + guide.photos.map(function (p) { return esc(p.filename); }).join(' · ') + '</p></article>';
+      ((guide.linkedExerciseIds || []).length ? '<section class="guide-section"><h2>Linked exercise demos</h2>' + guide.linkedExerciseIds.map(function (xid) { var ex = EX[xid]; if (!ex) return ''; var gp = ex.loadMode === 'duration' ? '5–30 min · continuous or intervals' : ex.repRange[0] + '–' + ex.repRange[1] + ' reps · ' + ex.sets + ' sets'; return '<div class="card"><div class="chead" style="padding:14px"><div><div class="cnum">' + esc(ex.primary.map(function (m) { return MU[m] ? MU[m].name : m; }).join(' + ')) + '</div><div class="cname">' + esc(ex.name) + '</div><div class="ctag">' + gp + '</div></div></div>' + howPanel(ex) + '</div>'; }).join('') + '</section>' : '') +
+      '<p class="source-line">Source photos · ' + (guide.photos || []).map(function (p) { return esc(p.filename); }).join(' · ') + '</p></article>';
     if (location.hash !== '#/equipment/' + guide.slug) history.replaceState(null, '', '#/equipment/' + guide.slug);
   }
 
@@ -864,6 +886,7 @@
         toast(requestedDays + ' training days selected' + (switchedProgram ? ' · ' + ACTIVE_PROGRAM.name + ' selected; history preserved' : ' · history preserved'));
         break;
       }
+      case 'select-gym': cfg.gymId = d('data-gym') === 'crunch' ? 'crunch' : 'home'; equipmentFilter = 'All'; equipmentQuery = ''; persist(); renderEquipment(); toast(activeGymName() + ' selected for workouts and substitutions'); break;
       case 'equipment-filter': equipmentFilter = d('data-cat'); renderEquipment(); break;
       case 'open-eq': openEquipment(d('data-eq')); break;
       case 'save-eqname': { var v = ((document.getElementById('eqrename') || {}).value || '').trim(); var eid = d('data-eq'); if (v) eqNames[eid] = v; else delete eqNames[eid]; set('muscles-eqnames', eqNames); openEquipment(eid); toast('Personal nickname saved'); break; }
