@@ -160,12 +160,21 @@
         var day = ACTIVE_PROGRAM.days[d];
         var mus = day.focusMuscles.map(function (m) { return MU[m] ? MU[m].name : m; }).join(' · ');
         return '<button class="weekrow ' + (d === proposed ? 'now ' : '') + '" data-action="pick-focus" data-day="' + d + '"><span class="nm">' + esc(day.name) + '</span><span class="mus">' + esc(mus) + '</span></button>';
-      }).join('') + '<button class="weekrow cardio" data-action="start-cardio"><span class="nm">Optional cardio</span><span class="mus">Treadmill · recumbent bike · upper-body ergometer</span></button>' +
+      }).join('') + '<button class="weekrow cardio" data-action="start-cardio"><span class="nm">Optional cardio</span><span class="mus">' + (cfg.gymId === 'crunch' ? 'Verified Crunch cardio only' : 'Treadmill · recumbent bike · upper-body ergometer') + '</span></button>' +
       '<div style="height:8px"></div><button class="cta sub" data-action="cancel-session">Cancel</button>';
   }
   function buildAndStart(dayId) {
     SESSION.dayId = dayId;
-    if (dayId === 'cardio') { SESSION.phase = 'cardio'; SESSION.cardio = L.buildCardio(ACTIVE_PROGRAM, EX, SESSION.budgetMin); return renderSession(); }
+    if (dayId === 'cardio') {
+      SESSION.phase = 'cardio';
+      SESSION.cardio = L.buildCardio(ACTIVE_PROGRAM, EX, SESSION.budgetMin);
+      if (cfg.gymId === 'crunch') {
+        SESSION.cardio.modalities = SESSION.cardio.modalities.filter(function (id) { return machinesForEx(id).length > 0; });
+        if (!SESSION.cardio.modalities.length && EX.treadmill_steady && machinesForEx('treadmill_steady').length) SESSION.cardio.modalities = ['treadmill_steady'];
+        SESSION.cardio.exId = SESSION.cardio.modalities[0] || SESSION.cardio.exId;
+      }
+      return renderSession();
+    }
     SESSION.built = prepBuilt(L.buildSession(ACTIVE_PROGRAM, EX, dayId, SESSION.budgetMin, {}));
     SESSION.idx = 0; SESSION.phase = 'active'; renderSession();
   }
@@ -716,8 +725,8 @@
       ['Repeated misses', 'Only repeated below-range performance triggers an optional reduction suggestion of about 10 percent. You choose whether to accept it.'],
       ['Recover on purpose', 'If performance, motivation and soreness remain unusually poor, reduce load or volume temporarily and seek qualified advice for persistent symptoms.']
     ] },
-    cardio: { title: 'Cardio', color: '#16889E', summary: 'Use the three verified modalities without compromising strength work.', points: [
-      ['Easy aerobic work', 'Conversational treadmill walking, recumbent cycling or arm cranking can build aerobic capacity and support recovery.'],
+    cardio: { title: 'Cardio', color: '#16889E', summary: 'Use gym-verified cardio options without compromising strength work.', points: [
+      ['Easy aerobic work', 'Conversational treadmill walking and any other cardio modality verified at your selected gym can build aerobic capacity and support recovery.'],
       ['Progress duration first', 'Add weekly minutes before making large jumps in speed, incline, cadence or resistance. Warm up and cool down.'],
       ['Public-health context', 'Build toward the current U.S. physical-activity guidance over time; any amount is useful, and individual needs differ.']
     ] },
@@ -735,7 +744,7 @@
       ['What if a machine is busy?', 'Tap Busy? for a same-pattern alternative or requeue the exercise at the end. The coach keeps you inside the selected program.'],
       ['What if a setting hurts?', 'Stop, reduce the load and range, re-check the guide and choose a pain-free alternative. Persistent pain needs qualified assessment.'],
       ['Will changing programs erase history?', 'No. Program changes reset only the next-day rotation; all logs, lift history, settings and nicknames remain.'],
-      ['Can I use this offline?', 'Yes after the first successful load. The shell, verified guides, photos, fonts and demonstrations are precached; the large PDF caches only when opened online.']
+      ['Can I use this offline?', 'The app shell, coaching logic, original-gym guide assets, fonts and demonstrations are available offline after caching. Crunch guide data is local to the app shell, but its source photos currently load from your Google Drive and need network access unless the browser already cached them.']
     ] },
     references: { title: 'References', color: '#2E6FA7', summary: 'Authoritative guidance and manufacturer evidence used by the handbook.', points: [
       ['Training guidance', '<a href="https://acsm.org/resistance-training-guidelines-update-2026/" target="_blank" rel="noopener">ACSM resistance-training guidance update</a> · <a href="https://odphp.health.gov/our-work/nutrition-physical-activity/physical-activity-guidelines/current-guidelines" target="_blank" rel="noopener">U.S. Physical Activity Guidelines</a>'],
