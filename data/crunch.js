@@ -741,7 +741,8 @@
     "primary": "Lats and upper back",
     "secondary": "Biceps and rear deltoids",
     "ex": [
-      "lat_pulldown"
+      "lat_pulldown",
+      "pl_lat_pulldown"
     ],
     "zone": "plate-loaded",
     "photos": [
@@ -763,7 +764,8 @@
     "primary": "Lats",
     "secondary": "Biceps and upper back",
     "ex": [
-      "lat_pulldown"
+      "lat_pulldown",
+      "pl_lat_pulldown"
     ],
     "zone": "plate-loaded",
     "photos": [
@@ -800,7 +802,9 @@
     "pattern": "Elbow flexion",
     "primary": "Biceps",
     "secondary": "Forearms",
-    "ex": [],
+    "ex": [
+      "pl_biceps_curl"
+    ],
     "zone": "plate-loaded",
     "photos": [
       "IMG_2153.JPG",
@@ -840,7 +844,8 @@
     "primary": "Lats",
     "secondary": "Biceps and upper back",
     "ex": [
-      "lat_pulldown"
+      "lat_pulldown",
+      "pl_lat_pulldown"
     ],
     "zone": "plate-loaded",
     "photos": [
@@ -880,7 +885,8 @@
     "primary": "Chest",
     "secondary": "Triceps and front deltoids",
     "ex": [
-      "pl_chest_press"
+      "pl_chest_press",
+      "pl_decline_press"
     ],
     "zone": "plate-loaded",
     "photos": [
@@ -1157,7 +1163,9 @@
     "pattern": "Hip adduction",
     "primary": "Inner thighs / adductors",
     "secondary": "Hip stabilizers",
-    "ex": [],
+    "ex": [
+      "hip_adduction"
+    ],
     "zone": "selectorized",
     "photos": [
       "IMG_2184.JPG",
@@ -1568,7 +1576,7 @@
   // Observed free floor/turf makes bodyweight work available even though it is not a machine guide.
   window.CRUNCH_EQUIPMENT.push({id:'cr-bodyweight-space',name:'Open floor / turf space',type:'Training area',category:'Full Body',
     photo:(window.CRUNCH_GUIDES.filter(function(g){return g.id==='cr-plate-loaded-dip-unverified';})[0]||{photos:[]}).photos[0]?.webp||'',
-    photos:[],sourceFiles:['IMG_2179.JPG'],exerciseIds:['pushup','plank','russian_twist','lying_leg_raise','walking_lunge','bulgarian_split'],
+    photos:[],sourceFiles:['IMG_2179.JPG'],exerciseIds:['pushup','plank','dead_bug','russian_twist','lying_leg_raise','walking_lunge','bulgarian_split'],
     confidence:'Observed',verified:true,autoEligible:true,zoneId:'free-weights',gymId:'crunch'});
 
   window.CRUNCH_MAP={
