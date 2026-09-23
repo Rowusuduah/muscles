@@ -257,7 +257,7 @@
 
     var gymSwapNote = s.gymSwapFrom ? '<div class="coach-suggest"><span>Crunch availability swap: <b>' + esc(EX[s.gymSwapFrom] ? EX[s.gymSwapFrom].name : s.gymSwapFrom) + '</b> → <b>' + esc(ex.name) + '</b>.</span></div>' : '';
     var picker = machines.length ? '<div class="picker"><div class="lab">Pick your machine</div><div class="machopts">' +
-      machines.map(function (m) { return '<button class="macho ' + (m.id === s.machineId ? 'sel' : '') + '" data-action="pick-machine" data-machine="' + m.id + '" aria-pressed="' + (m.id === s.machineId) + '"><img src="' + m.photo + '" alt="' + esc(m.name) + '"><span class="nm">' + esc(m.name) + '</span></button>'; }).join('') + '</div>' +
+      machines.map(function (m) { return '<button class="macho ' + (m.id === s.machineId ? 'sel' : '') + '" data-action="pick-machine" data-machine="' + m.id + '" aria-pressed="' + (m.id === s.machineId) + '"><img src="' + m.photo + '" alt="' + esc(m.name) + '"><span class="nm">' + esc(m.name) + (cfg.gymId === 'crunch' && m.zoneId ? '<small>Zone · ' + esc(m.zoneId.replace(/-/g, ' ')) + '</small>' : '') + '</span></button>'; }).join('') + '</div>' +
       (machSel ? '<label class="fieldlabel compact" for="machinesetting">Machine setting <span>seat, pin or pad position</span></label><input class="search compact" id="machinesetting" data-machine-setting="' + esc(machSel.id) + '" value="' + esc(machineSettings[machSel.id] || '') + '" placeholder="Example: seat 4">' : '') +
       multiUse(machSel, s) + '</div>' : '';
 
@@ -531,14 +531,14 @@
   }
 
   /* ---------- EQUIPMENT / multi-gym verified guides ---------- */
-  var equipmentFilter = 'All', equipmentQuery = '';
+  var equipmentFilter = 'All', equipmentQuery = '', equipmentZoneFilter = 'All';
   function crunchMapHtml() {
     if (cfg.gymId !== 'crunch' || !window.CRUNCH_MAP) return '';
     var map = window.CRUNCH_MAP;
     return '<section class="panel gym-map"><div class="eyebrow">Equipment map · schematic / not to scale</div>' +
       '<p class="lede" style="margin-bottom:12px">' + esc(map.method) + '</p>' +
-      '<div class="map-route">' + map.zones.map(function (z, i) {
-        return '<div class="map-zone"><span class="map-order">' + (i + 1) + '</span><div><b>' + esc(z.name) + '</b><small>Photos ' + esc(z.ranges.join(', ')) + '</small><p>' + esc(z.note) + '</p></div></div>';
+      '<div class="map-route"><button type="button" class="map-zone map-all ' + (equipmentZoneFilter === 'All' ? 'on' : '') + '" data-action="equipment-zone" data-zone="All"><span class="map-order">◎</span><div><b>All Crunch zones</b><small>Show the complete verified inventory</small></div></button>' + map.zones.map(function (z, i) {
+        return '<button type="button" class="map-zone ' + (equipmentZoneFilter === z.id ? 'on' : '') + '" data-action="equipment-zone" data-zone="' + esc(z.id) + '"><span class="map-order">' + (i + 1) + '</span><div><b>' + esc(z.name) + '</b><small>Photos ' + esc(z.ranges.join(', ')) + '</small><p>' + esc(z.note) + '</p></div></button>';
       }).join('') + '</div>' +
       '<p class="source-line">EXIF audit: ' + map.exif.photoCount + ' unique photos · median GPS horizontal error ' + map.exif.gpsMedianErrorM + ' m · range ' + map.exif.gpsMinErrorM + '–' + map.exif.gpsMaxErrorM + ' m. GPS is therefore used only to anchor the venue, not individual machines.</p></section>';
   }
@@ -554,7 +554,8 @@
         return p.filename + ' photo ' + displayNumber + ' image ' + displayNumber + ' eq' + displayNumber;
       });
       var haystack = [guide.identity, guide.purpose, guide.movementPattern, guide.zoneId || ''].concat(guide.aliases || [], photoTerms).join(' ').toLowerCase();
-      return inCategory && (!q || haystack.indexOf(q) >= 0);
+      var inZone = equipmentZoneFilter === 'All' || guide.zoneId === equipmentZoneFilter;
+      return inCategory && inZone && (!q || haystack.indexOf(q) >= 0);
     });
     var totalPhotos = cfg.gymId === 'crunch' && window.CRUNCH_GYM ? window.CRUNCH_GYM.photoCount : 51;
     el.innerHTML = '<div class="eyebrow">' + guides.length + ' verified/model-level guides · ' + totalPhotos + ' source photos</div><h1 class="day">Equipment</h1>' +
@@ -902,7 +903,8 @@
         break;
       }
       case 'gym-jump': showTab('equipment'); break;
-      case 'select-gym': cfg.gymId = d('data-gym') === 'crunch' ? 'crunch' : 'home'; equipmentFilter = 'All'; equipmentQuery = ''; persist(); renderEquipment(); toast(activeGymName() + ' selected for workouts and substitutions'); break;
+      case 'select-gym': cfg.gymId = d('data-gym') === 'crunch' ? 'crunch' : 'home'; equipmentFilter = 'All'; equipmentZoneFilter = 'All'; equipmentQuery = ''; persist(); renderEquipment(); toast(activeGymName() + ' selected for workouts and substitutions'); break;
+      case 'equipment-zone': equipmentZoneFilter = d('data-zone') || 'All'; renderEquipment(); break;
       case 'equipment-filter': equipmentFilter = d('data-cat'); renderEquipment(); break;
       case 'open-eq': openEquipment(d('data-eq')); break;
       case 'save-eqname': { var v = ((document.getElementById('eqrename') || {}).value || '').trim(); var eid = d('data-eq'); if (v) eqNames[eid] = v; else delete eqNames[eid]; set('muscles-eqnames', eqNames); openEquipment(eid); toast('Personal nickname saved'); break; }
