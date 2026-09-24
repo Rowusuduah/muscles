@@ -385,6 +385,15 @@ test('solo coach assigns a verified station from route and history while partner
   assert.match(app, /machineChoiceReason/);
 });
 
+test('partner-led sessions include an explicit two-hour option and preserve that budget', () => {
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.match(app, /\[30, 45, 60, 90, 120\]/);
+  assert.match(app, /m === 120 \? '2 hours'/);
+  const custom = L.buildCustom(['db_bench', 'db_row'], EX, 120, 'Partner session');
+  assert.equal(custom.mode, 'partner');
+  assert.equal(custom.budgetMin, 120);
+});
+
 test('guided load test identifies a suitable load without guessing and respects assistance semantics', () => {
   const rack = [35, 40, 45, 50, 55];
   const right = L.assessLoadTest(EX.db_bench, { load: 45, reps: 10, rir: 2, clean: true, pain: false }, { availableDumbbellsLb: rack });
@@ -426,7 +435,7 @@ test('installed app exposes explicit update checking and a new versioned cache',
   assert.match(html, /window\.MUSCLES_UPDATES/);
   assert.match(html, /reg\.update\(\)/);
   assert.match(html, /visibilitychange/);
-  assert.match(sw, /2026-09-24-r15/);
+  assert.match(sw, /2026-09-24-r16/);
 });
 
 test('motion guide has detailed phases and an exercise-specific plank-drag view', () => {

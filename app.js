@@ -3,7 +3,7 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
-  var APP_RELEASE = '2026.09.24.3';
+  var APP_RELEASE = '2026.09.24.4';
   var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
   var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
@@ -270,7 +270,7 @@
   function partnerTime() {
     var el = document.getElementById('s-today');
     el.innerHTML = '<div class="eyebrow">Almost there</div><h1 class="day">How long?</h1><p class="sub">Optional — I\'ll trim or pad your ' + SESSION.picked.length + ' exercises to fit.</p>' +
-      '<div class="timegrid">' + [30, 45, 60, 90].map(function (m) { return '<button class="timechip" data-action="partner-go" data-min="' + m + '"><div class="big">' + m + '</div><div class="u">min</div></button>'; }).join('') +
+      '<div class="timegrid">' + [30, 45, 60, 90, 120].map(function (m) { return '<button class="timechip" data-action="partner-go" data-min="' + m + '"><div class="big">' + m + '</div><div class="u">' + (m === 120 ? '2 hours' : 'min') + '</div></button>'; }).join('') +
       '<button class="timechip" data-action="partner-go" data-min="0"><div class="big">—</div><div class="u">no limit</div></button></div>' +
       '<button class="cta sub" data-action="partner-back">Back</button>';
   }
