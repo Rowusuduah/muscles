@@ -385,13 +385,24 @@ test('solo coach assigns a verified station from route and history while partner
   assert.match(app, /machineChoiceReason/);
 });
 
-test('partner-led sessions include an explicit two-hour option and preserve that budget', () => {
+test('partner-led sessions combine multiple areas, mixed cardio and an explicit two-hour budget', () => {
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   assert.match(app, /\[30, 45, 60, 90, 120\]/);
   assert.match(app, /m === 120 \? '2 hours'/);
-  const custom = L.buildCustom(['db_bench', 'db_row'], EX, 120, 'Partner session');
+  assert.match(app, /Back \+ Arms \+ Cardio/);
+  assert.match(app, /Mat \/ Abs/);
+  assert.match(app, /data-action="toggle-part"/);
+  assert.match(app, /if \(SESSION\.mode !== 'partner'\) plan\.cycleIndex/);
+  const custom = L.buildCustom(['db_row', 'db_curl', 'lying_leg_raise', 'treadmill_steady'], EX, 120, 'Back + Arms + Mat / Abs + Cardio');
   assert.equal(custom.mode, 'partner');
   assert.equal(custom.budgetMin, 120);
+  assert.equal(custom.slots.length, 4);
+  const cardio = custom.slots.find((slot) => slot.role === 'cardio');
+  assert.ok(cardio);
+  assert.equal(cardio.sets, 1);
+  assert.equal(cardio.ex.measure, 'minutes');
+  assert.deepEqual(cardio.ex.repRange, [10, 30]);
+  assert.equal(L.cardioMinutes({ '2026-09-24': { exercises: [{ exId: 'treadmill_steady', cardioMinutes: 20, sets: [{ minutes: 20, effort: 4 }] }] } }, '2026-09-24', 7), 20);
 });
 
 test('guided load test identifies a suitable load without guessing and respects assistance semantics', () => {
@@ -435,7 +446,7 @@ test('installed app exposes explicit update checking and a new versioned cache',
   assert.match(html, /window\.MUSCLES_UPDATES/);
   assert.match(html, /reg\.update\(\)/);
   assert.match(html, /visibilitychange/);
-  assert.match(sw, /2026-09-24-r16/);
+  assert.match(sw, /2026-09-24-r17/);
 });
 
 test('motion guide has detailed phases and an exercise-specific plank-drag view', () => {
