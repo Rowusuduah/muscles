@@ -174,6 +174,44 @@
   /* ---------------- progression (double progression) ---------------- */
   function incrementLb(ex) { return ex.increment ? ex.increment.lb : 5; }
 
+  function nextTestLoad(ex, currentLoad, resistanceDirection, rack) {
+    var assistance = ex.loadMode === 'assistance';
+    var selectedDirection = assistance ? -resistanceDirection : resistanceDirection;
+    var available = (rack || []).map(Number).filter(function (value) { return isFinite(value) && value > 0; }).sort(function (a, b) { return a - b; });
+    if (ex.loadMode === 'perHand' && available.length) {
+      if (selectedDirection > 0) {
+        for (var i = 0; i < available.length; i++) if (available[i] > currentLoad) return available[i];
+        return null;
+      }
+      for (var j = available.length - 1; j >= 0; j--) if (available[j] < currentLoad) return available[j];
+      return null;
+    }
+    var step = Math.max(1, Math.abs(Number(incrementLb(ex)) || 5));
+    return Math.max(0, Math.round((currentLoad + selectedDirection * step) * 10) / 10);
+  }
+
+  // Evaluate one pain-free, technique-controlled calibration set. This never
+  // fabricates the starting load: the user enters a labeled load, performs it,
+  // then reports reps and clean reps in reserve.
+  function assessLoadTest(ex, attempt, options) {
+    options = options || {}; attempt = attempt || {};
+    var load = Number(attempt.load), reps = Number(attempt.reps), rir = Number(attempt.rir);
+    var range = ex.repRange || [8, 12], lower = Number(range[0]), upper = Number(range[1]);
+    if (!(load >= 0) || !(reps > 0) || !(rir >= 0 && rir <= 5)) return { valid: false, verdict: 'invalid', accepted: false, message: 'Enter the labeled load, completed repetitions, and 0–5 RIR.' };
+    if (attempt.pain === true) return { valid: true, verdict: 'stop', accepted: false, suggestedLoad: null, message: 'Stop this exercise. Do not use pain to calibrate a load; choose a pain-free alternative or seek qualified guidance.' };
+
+    var tooHeavy = attempt.clean === false || reps < lower || rir < 1;
+    var tooLight = !tooHeavy && (reps > upper || rir > 3);
+    var direction = tooHeavy ? -1 : (tooLight ? 1 : 0);
+    if (!direction) return { valid: true, verdict: 'right', accepted: true, load: load, suggestedLoad: load, message: 'This is a suitable starting load: target-range repetitions with about 1–3 clean reps in reserve.' };
+
+    var next = nextTestLoad(ex, load, direction, options.availableDumbbellsLb || []);
+    var assistance = ex.loadMode === 'assistance';
+    var action = tooHeavy ? (assistance ? 'increase the assistance' : 'reduce the resistance') : (assistance ? 'reduce the assistance' : 'increase the resistance');
+    var nextText = next == null ? 'Use the next labeled step in that direction.' : 'Retest at ' + next + ' lb' + (ex.loadMode === 'perHand' ? ' per hand.' : '.');
+    return { valid: true, verdict: tooHeavy ? 'too_heavy' : 'too_light', accepted: false, load: load, suggestedLoad: next, message: (attempt.clean === false ? 'Technique changed before the set was complete; ' : '') + action.charAt(0).toUpperCase() + action.slice(1) + '. ' + nextText };
+  }
+
   // prescribe next weight for an exercise given its lift record (in lb)
   function prescribe(ex, rec) {
     if (!rec || rec.lastWeight == null) {
@@ -430,7 +468,7 @@
     slotSeconds: slotSeconds, buildSession: buildSession, buildCardio: buildCardio, rampSets: rampSets,
     fitToBudget: fitToBudget, buildCustom: buildCustom, altsForExercise: altsForExercise,
     recentMuscles: recentMuscles, lastDayId: lastDayId, nextAloneDay: nextAloneDay, exercisesForBodyPart: exercisesForBodyPart,
-    prescribe: prescribe, acceptReduction: acceptReduction, updateLift: updateLift,
+    prescribe: prescribe, acceptReduction: acceptReduction, updateLift: updateLift, assessLoadTest: assessLoadTest,
     weeklyVolume: weeklyVolume, cardioMinutes: cardioMinutes, heat: heat, recommendations: recommendations,
     streak: streak, bestStreak: bestStreak, weeklyConsistency: weeklyConsistency, consistencyLevel: consistencyLevel, totalSets: totalSets, rank: rank,
     busyAlternatives: busyAlternatives, RANKS: RANKS
