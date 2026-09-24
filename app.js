@@ -3,7 +3,7 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
-  var APP_RELEASE = '2026.09.24.5';
+  var APP_RELEASE = '2026.09.24.6';
   var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
   var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
@@ -43,7 +43,27 @@
     persist();
   }
   if (!cfg.start) { cfg.start = todayISO(); persist(); }
-  var SESSION = null, workInt = null, restInt = null, forceGymPicker = false;
+  var WALKIN_DRAFT_KEY = 'muscles-walkin-draft';
+  var SESSION = null, workInt = null, restInt = null, forceGymPicker = false, restoredWalkin = false;
+  function saveWalkinDraft() {
+    if (!SESSION || SESSION.mode !== 'walkin') return;
+    try {
+      localStorage.setItem(WALKIN_DRAFT_KEY, JSON.stringify({ savedAt: new Date().toISOString(), gymId: cfg.gymId, session: SESSION }));
+    } catch (error) { /* The completed log remains the source of truth. */ }
+  }
+  function clearWalkinDraft() { localStorage.removeItem(WALKIN_DRAFT_KEY); }
+  function restoreWalkinDraft() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(WALKIN_DRAFT_KEY) || 'null');
+      if (!saved || !saved.session || saved.session.mode !== 'walkin' || !saved.session.built || !Array.isArray(saved.session.built.slots) || !saved.session.built.slots.length) return;
+      saved.session.built.slots = saved.session.built.slots.filter(function (slot) { slot.ex = EX[slot.exId]; return !!slot.ex; });
+      if (!saved.session.built.slots.length) { clearWalkinDraft(); return; }
+      SESSION = saved.session; SESSION.phase = SESSION.phase === 'summary' ? 'summary' : 'active'; SESSION._rest = null;
+      if (saved.gymId === 'home' || saved.gymId === 'crunch') cfg.gymId = saved.gymId;
+      restoredWalkin = true;
+    } catch (error) { clearWalkinDraft(); }
+  }
+  restoreWalkinDraft();
 
   /* ---------- helpers ---------- */
   var FRONT_M = ['traps', 'front_delts', 'side_delts', 'chest', 'biceps', 'forearms', 'abs', 'obliques', 'quads', 'calves'];
@@ -306,6 +326,55 @@
     SESSION.budgetMin = min || null; SESSION.idx = 0; SESSION.phase = 'preview'; renderSession();
   }
 
+  /* ---------- EQUIPMENT-LED open gym visit ---------- */
+  function walkinBannerHtml() {
+    if (!SESSION || SESSION.mode !== 'walkin') return '';
+    var progress = sessionProgress();
+    return '<section class="panel visit-banner" aria-label="Open gym visit in progress"><div><span class="eyebrow">Gym visit in progress</span><b>' + SESSION.built.slots.length + ' exercise' + (SESSION.built.slots.length === 1 ? '' : 's') + ' selected</b><small>' + progress.done + ' working set' + (progress.done === 1 ? '' : 's') + ' logged safely on this device.</small></div><div class="visit-banner-actions"><button class="mini" data-action="resume-walkin">Current exercise</button><button class="mini ' + (progress.done ? 'busy' : '') + '" data-action="' + (progress.done ? 'finish-visit' : 'discard-walkin') + '">' + (progress.done ? 'Finish &amp; save' : 'Cancel empty visit') + '</button></div></section>';
+  }
+  function selectWalkinMachine(slot, machineId) {
+    var machine = L.byId(activeEquipment())[machineId];
+    if (!machine || (machine.exerciseIds || []).indexOf(slot.exId) < 0) return false;
+    slot.machineId = machine.id; slot.zoneId = machine.zoneId || slot.zoneId;
+    slot.machineChoiceReason = 'Selected directly from the verified Equipment guide during this gym visit.';
+    return true;
+  }
+  function useEquipment(exId, machineId) {
+    var ex = EX[exId];
+    if (!ex || !L.byId(machinesForEx(exId))[machineId]) { toast('That exercise is not mapped to this equipment'); return; }
+    if (SESSION && SESSION.mode !== 'walkin') { toast('Finish or save the current workout before starting an equipment-led visit'); return; }
+    if (!SESSION) {
+      var built = L.buildCustom([exId], EX, null, 'Open gym visit · with friends');
+      built.mode = 'walkin'; built.dayId = 'walkin';
+      built.reasonSelected = 'You chose verified equipment as you moved through the gym.';
+      built = prepBuilt(COACH.enhanceWorkout(built, { EX: EX, equipment: activeEquipment(), profile: trainingProfile, log: log, readiness: null }));
+      SESSION = { mode: 'walkin', phase: 'active', built: built, idx: 0, budgetMin: null, startedAt: Date.now(), gymId: cfg.gymId };
+      selectWalkinMachine(SESSION.built.slots[0], machineId);
+      SESSION.built.decisionLog.push({ type: 'equipment_visit_selected', exerciseId: exId, machineId: machineId, reasons: ['selected from Equipment', 'friend-led open gym visit'] });
+    } else {
+      var existingIndex = SESSION.built.slots.findIndex(function (slot) { return slot.exId === exId && slot.machineId === machineId; });
+      if (existingIndex >= 0) {
+        var existing = SESSION.built.slots[existingIndex];
+        var unfinished = existing.log.some(function (set) { return set.kind !== 'warmup' && !set.done; });
+        if (!unfinished) {
+          var completed = existing.log.filter(function (set) { return set.kind !== 'warmup' && set.done; });
+          var lastWeight = completed.length ? completed[completed.length - 1].weight : existing.pre.weight;
+          existing.log.push(newSet(lastWeight)); existing.sets++; existing.targetSets = existing.sets;
+        }
+        SESSION.idx = existingIndex;
+      } else {
+        var addition = L.buildCustom([exId], EX, null, SESSION.built.name); addition.mode = 'walkin';
+        addition = prepBuilt(COACH.enhanceWorkout(addition, { EX: EX, equipment: activeEquipment(), profile: trainingProfile, log: log, readiness: null }));
+        var slot = addition.slots[0]; selectWalkinMachine(slot, machineId);
+        SESSION.built.slots.push(slot); SESSION.idx = SESSION.built.slots.length - 1;
+        SESSION.built.decisionLog.push({ type: 'equipment_visit_selected', exerciseId: exId, machineId: machineId, reasons: ['selected from Equipment', 'added to current gym visit'] });
+      }
+      SESSION.phase = 'active'; SESSION._rest = null;
+    }
+    SESSION.built.route = routeForAssignedSlots(SESSION.built.slots);
+    saveWalkinDraft(); showTab('today'); toast(ex.name + ' ready to log');
+  }
+
   function renderPreview() {
     var el = document.getElementById('s-today'), b = SESSION.built;
     var route = (b.route || []).map(function (group, index) { return '<span><b>' + (index + 1) + '</b>' + esc(zoneName(group.zoneId)) + '<small>' + group.exerciseIds.length + ' exercise' + (group.exerciseIds.length === 1 ? '' : 's') + '</small></span>'; }).join('<i aria-hidden="true">↓</i>');
@@ -393,14 +462,15 @@
     var mark = focusMark(b.focusMuscles, b.slots); var pr = sessionProgress();
     var pips = ''; for (var i = 0; i < Math.min(pr.total, 26); i++) pips += '<span class="pip' + (i < pr.done ? ' on' : '') + '"></span>';
     var machines = machinesForEx(s.exId); var machSel = L.byId(machines)[s.machineId] || machines[0];
-    var isPartner = SESSION.mode === 'partner';
+    var isWalkin = SESSION.mode === 'walkin';
+    var isPartner = SESSION.mode === 'partner' || isWalkin;
     var ex = s.ex;
     var lastHistory = COACH.historyFor(log, s.exId, 1)[0];
     var sameZoneAhead = 0; for (var zi = SESSION.idx; zi < b.slots.length && b.slots[zi].zoneId === s.zoneId; zi++) sameZoneAhead++;
     var locationCue = s.zoneId && s.zoneId !== 'unmapped' ? '<div class="location-cue"><b>' + esc(zoneName(s.zoneId)) + '</b><span>' + (sameZoneAhead > 1 ? 'Next ' + sameZoneAhead + ' exercises stay here.' : 'Current equipment zone.') + '</span></div>' : '';
 
     var gymSwapNote = s.gymSwapFrom ? '<div class="coach-suggest"><span>Crunch availability swap: <b>' + esc(EX[s.gymSwapFrom] ? EX[s.gymSwapFrom].name : s.gymSwapFrom) + '</b> → <b>' + esc(ex.name) + '</b>.</span></div>' : '';
-    var picker = machines.length && isPartner ? '<div class="picker"><div class="lab">Partner-led equipment choice</div><div class="machopts">' +
+    var picker = machines.length && isPartner ? '<div class="picker"><div class="lab">' + (isWalkin ? 'Equipment selected for this gym visit' : 'Partner-led equipment choice') + '</div><div class="machopts">' +
       machines.map(function (m) { return '<button class="macho ' + (m.id === s.machineId ? 'sel' : '') + '" data-action="pick-machine" data-machine="' + m.id + '" aria-pressed="' + (m.id === s.machineId) + '"><img src="' + m.photo + '" alt="' + esc(m.name) + '"><span class="nm">' + esc(m.name) + (cfg.gymId === 'crunch' && m.zoneId ? '<small>Zone · ' + esc(m.zoneId.replace(/-/g, ' ')) + '</small>' : '') + '</span></button>'; }).join('') + '</div>' +
       (machSel ? '<label class="fieldlabel compact" for="machinesetting">Machine setting <span>seat, pin or pad position</span></label><input class="search compact" id="machinesetting" data-machine-setting="' + esc(machSel.id) + '" value="' + esc(machineSettings[machSel.id] || '') + '" placeholder="Example: seat 4">' : '') +
       multiUse(machSel, s) + '</div>' : (machSel ? '<section class="coach-machine"><div><span class="eyebrow">Coach chose your equipment</span><b>' + esc(nameOf(machSel)) + '</b><small>' + esc(s.machineChoiceReason || 'Verified for this exercise.') + (machSel.zoneId ? ' Go to ' + esc(zoneName(machSel.zoneId)) + '.' : '') + '</small></div>' +
@@ -418,9 +488,12 @@
     var rows = s.log.map(function (x, i) { return setRow(x, i, s, ex); }).join('');
     var how = s.showHow ? howPanel(ex) : '';
     var last = (SESSION.idx + 1) >= b.slots.length;
+    var sessionNavigation = isWalkin
+      ? '</div></div><div class="visit-actions"><button class="modebtn" data-action="pick-next-equipment"><span class="ic" aria-hidden="true">+</span><span><span class="t">Pick next equipment</span><span class="d">Browse the verified gym floor and keep this visit open</span></span></button><button class="cta" data-action="finish-visit">Finish gym visit &amp; save →</button></div>'
+      : '<button class="next-btn" data-action="next-slot">' + (last ? 'Finish ▸' : 'Next ▸') + '</button></div></div>';
 
     el.innerHTML =
-      '<div class="topbar"><div class="eyebrow">' + esc(b.name) + (b.estMin ? ' · ' + b.estMin + ' min' : '') + '</div><button class="mini" data-action="cancel-session">End</button></div>' +
+      '<div class="topbar"><div class="eyebrow">' + esc(b.name) + (b.estMin ? ' · ' + b.estMin + ' min' : '') + '</div><button class="mini" data-action="' + (isWalkin ? (pr.done ? 'finish-visit' : 'discard-walkin') : 'cancel-session') + '">' + (isWalkin ? (pr.done ? 'Finish & save' : 'Cancel') : 'End') + '</button></div>' +
       '<div class="meter"><div class="pips">' + pips + '</div><span class="n">' + pr.done + ' / ' + pr.total + ' sets</span></div>' +
       '<div class="card active slot fade"><div class="chead">' + shot(machSel) +
         '<div><div class="cnum">' + String(SESSION.idx + 1).padStart(2, '0') + ' / ' + b.slots.length + ' · ' + s.role.toUpperCase() + '</div>' +
@@ -434,9 +507,11 @@
         (ex.role !== 'cardio' ? '<button class="mini" data-action="add-warmup">+ Warm-up</button>' : '') +
         (cfg.advanced && ex.role !== 'cardio' ? '<button class="mini ' + (s.superEx ? 'busy' : '') + '" data-action="superset">' + (s.superEx ? 'Superset ✓' : '+ Superset') + '</button>' : '') +
         '<button class="mini busy" data-action="busy">Busy?</button>' +
-        '<button class="next-btn" data-action="next-slot">' + (last ? 'Finish ▸' : 'Next ▸') + '</button></div></div>';
+        sessionNavigation;
     requestAnimationFrame(pauseReducedMotion);
     if (SESSION._rest) startRestUI(SESSION._rest);
+    var runningIndex = s.log.findIndex(function (set) { return set.running; });
+    if (runningIndex >= 0) workInt = setInterval(function () { var timer = document.getElementById('tmr-' + runningIndex); if (timer) timer.textContent = fmtDur((Date.now() - s.log[runningIndex].startMs) / 1000); }, 500);
   }
 
   function multiUse(machine, slot) {
@@ -560,6 +635,7 @@
     if (SESSION._rest) s.log[i].restBeforeSec = Math.max(0, Math.round((Date.now() - SESSION._rest.startedAt) / 1000));
     SESSION._rest = null; clearInterval(restInt);
     s.log[i].running = true; s.log[i].startMs = Date.now();
+    saveWalkinDraft();
     renderActive();
     workInt = setInterval(function () { var el = document.getElementById('tmr-' + i); if (el) el.textContent = fmtDur((Date.now() - s.log[i].startMs) / 1000); }, 500);
   }
@@ -605,6 +681,7 @@
     var allDone = s.log.every(function (y) { return y.done; });
     s.liveAdvice = COACH.liveSetAdvice(s.ex, { repRange: s.ex.repRange, sets: s.sets }, s.log.filter(function (set) { return set.kind !== 'warmup' && set.done; }), s.log[i].restBeforeSec);
     SESSION._rest = allDone ? null : { sec: s.ex.restSec, left: s.ex.restSec, startedAt: Date.now() };
+    saveWalkinDraft();
     renderActive();
     if (!allDone) toast('Logged ✓ Rest ~' + s.ex.restSec + 's, then start the next set');
   }
@@ -618,7 +695,7 @@
   function busy() {
     var s = SESSION.built.slots[SESSION.idx];
     var ranked = COACH.rankedAlternatives(s.ex, s.alt, EX, activeEquipment(), trainingProfile, log, s.zoneId);
-    if (SESSION.mode !== 'partner') {
+    if (SESSION.mode !== 'partner' && SESSION.mode !== 'walkin') {
       if (ranked.length) {
         var automatic = ranked[0];
         swapTo(automatic.exercise.id);
@@ -651,17 +728,17 @@
     var key = fromId + '>' + exId; trainingProfile.preferences.substitutionCounts[key] = Number(trainingProfile.preferences.substitutionCounts[key] || 0) + 1;
     var decision = { type: 'exercise_swap', from: fromId, to: exId, machineId: s.machineId, reasons: ['equipment marked busy', 'verified alternative', s.ex.pattern === EX[fromId].pattern ? 'same movement pattern' : 'same intended muscle/training role'] };
     decisionLog.push(decision); decisionLog = decisionLog.slice(-100); SESSION.built.decisionLog.push(decision); SESSION.built.route = routeForAssignedSlots(SESSION.built.slots); persist();
-    SESSION._rest = null; renderActive();
+    SESSION._rest = null; saveWalkinDraft(); renderActive();
   }
   function requeue() {
     var b = SESSION.built;
     if (SESSION.idx >= b.slots.length - 1) { toast('Last exercise — nothing to requeue after'); return; }
-    b.slots.push(b.slots.splice(SESSION.idx, 1)[0]); SESSION._rest = null; renderActive(); toast('Moved to the end — come back to it');
+    b.slots.push(b.slots.splice(SESSION.idx, 1)[0]); SESSION._rest = null; saveWalkinDraft(); renderActive(); toast('Moved to the end — come back to it');
   }
   function addWarmup() {
     var s = SESSION.built.slots[SESSION.idx];
     var w = s.pre.weight != null ? Math.max(0, Math.round(s.pre.weight * 0.5)) : null;
-    s.log.unshift(newSet(w, 'warmup')); SESSION._rest = null; renderActive();
+    s.log.unshift(newSet(w, 'warmup')); SESSION._rest = null; saveWalkinDraft(); renderActive();
     toast('Warm-up set added (lighter) — it won\'t count toward your volume');
   }
   function openSuperset() {
@@ -714,11 +791,12 @@
   function renderSummary() {
     var el = document.getElementById('s-today'), pr = sessionProgress();
     var totMin = 0; SESSION.built.slots.forEach(function (s) { s.log.forEach(function (x) { if (x.done) totMin += x.durSec; }); });
-    el.innerHTML = '<div class="eyebrow">' + esc(SESSION.built.name) + '</div><h1 class="day">Done.</h1>' +
+    var walkin = SESSION.mode === 'walkin';
+    el.innerHTML = '<div class="eyebrow">' + esc(SESSION.built.name) + '</div><h1 class="day">' + (walkin ? 'Gym visit complete.' : 'Done.') + '</h1>' +
       '<p class="sub"><b>' + pr.done + ' sets</b> · ' + fmtDur(totMin) + ' under tension. How did it feel?</p>' +
       '<div class="timegrid" style="grid-template-columns:repeat(5,1fr)">' + [['1', 'rough'], ['2', 'meh'], ['3', 'ok'], ['4', 'good'], ['5', 'strong']].map(function (f) { return '<button class="timechip" data-action="felt" data-v="' + f[0] + '"><div class="big" style="font-size:22px">' + f[0] + '</div><div class="u">' + f[1] + '</div></button>'; }).join('') + '</div>' +
       '<input id="snote" class="search" placeholder="Note — energy, sleep, anything…">' +
-      '<button class="cta" data-action="save-session">Save session ✓</button>';
+      '<button class="cta" data-action="save-session">' + (walkin ? 'Save complete gym visit ✓' : 'Save session ✓') + '</button>';
   }
   function saveLiftSession() {
     var date = todayISO();
@@ -740,15 +818,16 @@
         if (bsets.length) { entry.exercises.push({ exId: s.superEx, sets: bsets, superOf: s.exId }); lifts[s.superEx] = L.updateLift(lifts[s.superEx], EX[s.superEx], bsets); }
       }
     });
-    log[date] = entry; set('muscles-log', log); set('muscles-lifts', lifts);
-    if (SESSION.mode !== 'partner') plan.cycleIndex = L.nextIndex(ACTIVE_PROGRAM, plan.cycleIndex);
+    L.appendDailyEntry(log, date, entry); set('muscles-log', log); set('muscles-lifts', lifts);
+    if (SESSION.mode === 'alone') plan.cycleIndex = L.nextIndex(ACTIVE_PROGRAM, plan.cycleIndex);
     plan.sessionCount++; plan.calibrated = true; set('muscles-plan', plan);
-    var pr = celebrate(entry); SESSION = null; updateHeader(); renderToday(); toast(pr || 'Session saved — nice work 💪');
+    var wasWalkin = SESSION.mode === 'walkin';
+    var pr = celebrate(entry); if (wasWalkin) clearWalkinDraft(); SESSION = null; updateHeader(); renderToday(); toast(pr || (wasWalkin ? 'Gym visit saved — every completed set is in Progress ✓' : 'Session saved — nice work 💪'));
   }
   function saveCardio() {
     var min = parseInt((document.getElementById('cardiomin') || {}).value, 10) || SESSION.cardio.minutes;
     var eff = parseInt((document.getElementById('cardioeff') || {}).value, 10) || null;
-    log[todayISO()] = { day: 'cardio', mode: SESSION.mode, cardio: { modality: EX[SESSION.cardio.exId].equipType, kind: 'steady', minutes: min, avgEffort: eff }, felt: null, note: '' };
+    L.appendDailyEntry(log, todayISO(), { day: 'cardio', mode: SESSION.mode, gymId: cfg.gymId, cardio: { modality: EX[SESSION.cardio.exId].equipType, kind: 'steady', minutes: min, avgEffort: eff }, felt: null, note: '' });
     set('muscles-log', log); plan.sessionCount++; set('muscles-plan', plan);
     SESSION = null; updateHeader(); renderToday(); toast(min + ' min cardio logged 🫁');
   }
@@ -834,7 +913,7 @@
     });
     var totalPhotos = cfg.gymId === 'crunch' && window.CRUNCH_GYM ? window.CRUNCH_GYM.photoCount : 51;
     el.innerHTML = '<div class="eyebrow">' + guides.length + ' verified/model-level guides · ' + totalPhotos + ' source photos</div><h1 class="day">Equipment</h1>' + libraryToggle() +
-      gymContextBar() +
+      gymContextBar() + walkinBannerHtml() +
       '<p class="lede">' + (cfg.gymId === 'crunch' ? 'Crunch guides are built from the September 22 photo audit. Repeated sightings of the same model are grouped, and uncertain machines are not auto-prescribed.' : 'Every original-gym photo is mapped. Alternate angles stay together, and shared-room views are explicitly cross-referenced.') + '</p>' +
       crunchMapHtml() +
       '<label class="fieldlabel" for="eqsearch">Search by machine or filename</label><input class="search" id="eqsearch" value="' + esc(equipmentQuery) + '" placeholder="Try pulldown, chest press, or IMG_2147" oninput="window.__eqSearch(this.value)">' +
@@ -868,7 +947,7 @@
     }).sort(function (a, b) { return String(a.family || '').localeCompare(String(b.family || '')) || a.name.localeCompare(b.name); });
     var dumbbellCount = Object.keys(EX).filter(function (id) { return EX[id].equipType === 'dumbbell'; }).length;
     el.innerHTML = '<div class="eyebrow">' + dumbbellCount + ' coached dumbbell movements · ' + Object.keys(EX).length + ' total exercises</div><h1 class="day">Exercises</h1>' + libraryToggle() +
-      gymContextBar() +
+      gymContextBar() + walkinBannerHtml() +
       '<p class="lede">Browse by movement, muscle or equipment. Results show only exercises mapped to verified equipment at ' + esc(activeGymName()) + '.</p>' +
       '<label class="fieldlabel" for="eqsearch">Search exercise, muscle, movement or equipment</label><input class="search" id="eqsearch" value="' + esc(equipmentQuery) + '" placeholder="Try rear delt, hamstrings, curl, press, or dumbbell" oninput="window.__eqSearch(this.value)">' +
       '<div class="bodyparts" aria-label="Exercise equipment filters">' + types.map(function (type) { return '<button class="bp ' + (exerciseFilter === type ? 'on' : '') + '" data-action="exercise-filter" data-cat="' + type + '">' + type + '</button>'; }).join('') + '</div>' +
@@ -945,8 +1024,9 @@
     var checks = (guide.adjustmentsAndChecks || []).map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('');
     var mistakes = (guide.mistakes || []).map(function (item) { return '<div class="correction"><b>' + esc(item.mistake) + '</b><span>' + esc(item.correction) + '</span></div>'; }).join('');
     var nickname = eqNames[guide.id] || '';
+    var linkedIds = ((e && e.exerciseIds) || guide.linkedExerciseIds || []).filter(function (xid) { return !!EX[xid]; });
     el.innerHTML = '<button class="mini" data-action="equipment-back">‹ ' + esc(activeGymName()) + ' equipment</button>' +
-      '<article class="guide-detail" style="--category:' + guide.categoryColor + '"><header class="guide-head"><span class="guide-label">' + esc(guide.category) + ' · ' + esc(activeGymName()) + (guide.autoEligible === false ? ' · manual only' : ' · coach eligible') + '</span><h1>' + esc(guide.identity) + '</h1>' +
+      walkinBannerHtml() + '<article class="guide-detail" style="--category:' + guide.categoryColor + '"><header class="guide-head"><span class="guide-label">' + esc(guide.category) + ' · ' + esc(activeGymName()) + (guide.autoEligible === false ? ' · manual only' : ' · coach eligible') + '</span><h1>' + esc(guide.identity) + '</h1>' +
       (nickname ? '<p class="nickname">Personal nickname · “' + esc(nickname) + '”</p>' : '') + '<p>' + esc(guide.purpose) + '</p><div class="guide-meta"><span>' + esc(guide.movementPattern) + '</span><span>' + esc(guide.difficulty) + '</span><span>' + esc(guide.evidence.confidence) + ' confidence</span>' + (guide.zoneId ? '<span>Zone · ' + esc(guide.zoneId.replace(/-/g, ' ')) + '</span>' : '') + '</div></header>' +
       '<div class="guide-carousel" aria-label="Source photo carousel">' + photos + '</div>' +
       '<div class="evidence"><span class="eyebrow">Identity evidence</span><p>' + esc(guide.evidence.summary) + '</p></div>' +
@@ -958,7 +1038,7 @@
       '<aside class="safety-note"><span class="eyebrow">Safety</span><p>' + esc(guide.safety) + '</p><small>Stop if you feel sharp pain, chest pain, faintness, or unusual shortness of breath. This guide is education, not rehabilitation.</small></aside>' +
       '<section class="guide-section program-block"><div><span class="eyebrow">Programming</span><p>' + esc(guide.programming) + '</p></div><div><span class="eyebrow">Progression</span><p>' + esc(guide.progression) + '</p></div><div><span class="eyebrow">Workout placement</span><p>' + esc(guide.workoutPlacement) + '</p></div><div><span class="eyebrow">Alternatives</span><p>' + ((guide.alternatives || []).length ? guide.alternatives.map(esc).join(' · ') : 'Use another coach-eligible machine for the same exercise or movement pattern.') + '</p></div></section>' +
       '<section class="guide-section nickname-editor"><label class="fieldlabel" for="eqrename">Personal nickname <span>optional · authoritative identity stays unchanged</span></label><div class="inline-field"><input class="search" id="eqrename" value="' + esc(nickname) + '" placeholder="Your name for this machine"><button class="mini" data-action="save-eqname" data-eq="' + guide.id + '">Save</button></div></section>' +
-      ((((e && e.exerciseIds) || guide.linkedExerciseIds || []).length) ? '<section class="guide-section"><h2>Linked exercise demos</h2>' + ((e && e.exerciseIds) || guide.linkedExerciseIds || []).map(function (xid) { var ex = EX[xid]; if (!ex) return ''; var gp = ex.loadMode === 'duration' ? '5–30 min · continuous or intervals' : ex.repRange[0] + '–' + ex.repRange[1] + ' reps · ' + ex.sets + ' sets'; return '<div class="card"><div class="chead" style="padding:14px"><div><div class="cnum">' + esc(ex.primary.map(function (m) { return MU[m] ? MU[m].name : m; }).join(' + ')) + '</div><div class="cname">' + esc(ex.name) + '</div><div class="ctag">' + gp + '</div></div><button class="mini" data-action="open-ex" data-ex="' + ex.id + '">Full guide</button></div>' + howPanel(ex) + '</div>'; }).join('') + '</section>' : '') +
+      (linkedIds.length ? '<section class="guide-section"><h2>Use &amp; log this equipment</h2><p class="sub">Choose the movement you are doing now. The visit stays open while you move to another machine, and every completed set is saved together when you finish.</p>' + linkedIds.map(function (xid) { var ex = EX[xid]; var gp = ex.measure === 'minutes' ? ex.repRange[0] + '–' + ex.repRange[1] + ' min · log effort' : ex.repRange[0] + '–' + ex.repRange[1] + ' reps · ' + ex.sets + ' sets'; return '<div class="card"><div class="chead" style="padding:14px"><div><div class="cnum">' + esc(ex.primary.map(function (m) { return MU[m] ? MU[m].name : m; }).join(' + ')) + '</div><div class="cname">' + esc(ex.name) + '</div><div class="ctag">' + gp + '</div></div><div class="guide-log-actions"><button class="mini" data-action="open-ex" data-ex="' + ex.id + '">Guide</button><button class="mini busy" data-action="use-equipment" data-eq="' + guide.id + '" data-ex="' + ex.id + '">' + (SESSION && SESSION.mode === 'walkin' ? 'Add &amp; log' : 'Use &amp; log') + '</button></div></div>' + howPanel(ex) + '</div>'; }).join('') + '</section>' : '<section class="guide-section"><p class="sub">This guide has no safe linked exercise for direct logging. Use its education content only.</p></section>') +
       '<p class="source-line">Source photos · ' + (guide.photos || []).map(function (p) { return esc(p.filename); }).join(' · ') + '</p></article>';
     if (location.hash !== '#/equipment/' + guide.slug) history.replaceState(null, '', '#/equipment/' + guide.slug);
     window.scrollTo(0, 0);
@@ -977,7 +1057,7 @@
   function renderProgress() {
     var el = document.getElementById('s-progress');
     var wk = L.weeklyVolume(log, EX, todayISO(), 7), heat = L.heat(wk, MUSCLES);
-    var cardio = L.cardioMinutes(log, todayISO(), 7), sessions = Object.keys(log).length;
+    var cardio = L.cardioMinutes(log, todayISO(), 7), sessions = L.sessionCount(log);
     var consistency = L.weeklyConsistency(log, todayISO(), cfg.weeklyFrequency), r = consistency.level;
     var prs = Object.keys(lifts).map(function (id) { return { name: EX[id] ? EX[id].name : id, e: lifts[id].bestE1RM }; }).filter(function (x) { return x.e > 0; }).sort(function (a, b) { return b.e - a.e; }).slice(0, 6);
     var dumbbellInsights = Object.keys(EX).filter(function (id) { return EX[id].equipType === 'dumbbell'; }).map(function (id) { var h = COACH.historyFor(log, id, 5); return { ex: EX[id], history: h, trend: COACH.performanceTrend(h), plateau: COACH.plateauStatus(EX[id], h) }; }).filter(function (item) { return item.history.length >= 2; }).sort(function (a, b) { return b.history.length - a.history.length; }).slice(0, 5);
@@ -1029,6 +1109,15 @@
     var e = log[iso]; if (!e) return; var wrap = document.getElementById('caldetail');
     var dt = new Date(iso + 'T00:00:00');
     var head = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getDay()] + ' ' + dt.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][dt.getMonth()];
+    if (e.sessions && e.sessions.length) {
+      wrap.innerHTML = '<div class="lab" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">' + head + ' · ' + e.sessions.length + ' saved sessions</div>' + e.sessions.map(function (session, sessionIndex) {
+        if (session.day === 'cardio' && session.cardio) return '<section class="history-session"><b>Session ' + (sessionIndex + 1) + ' · Cardio</b><p class="sub">' + session.cardio.minutes + ' min · ' + esc(session.cardio.modality) + (session.cardio.avgEffort ? ' · effort ' + session.cardio.avgEffort + '/10' : '') + '</p></section>';
+        var sessionBody = (session.exercises || []).map(function (item) { var exercise = EX[item.exId]; return '<div style="margin:8px 0"><div style="font-family:var(--disp);font-weight:600;text-transform:uppercase;font-size:15px">' + esc(exercise ? exercise.name : item.exId) + '</div>' + (item.sets || []).map(function (set, setIndex) { return '<span class="mono" style="font-size:11.5px;color:var(--muted);margin-right:10px">' + (item.cardioMinutes ? set.minutes + ' min' + (set.effort != null ? ' · effort ' + set.effort + '/10' : '') : 'S' + (setIndex + 1) + ': ' + set.reps + '×' + L.toDisplay(set.weight, cfg.units)) + '</span>'; }).join('') + '</div>'; }).join('');
+        var sessionName = session.day === 'walkin' ? 'Equipment-led gym visit' : (ACTIVE_PROGRAM.days[session.day] ? ACTIVE_PROGRAM.days[session.day].name : session.day);
+        return '<section class="history-session"><b>Session ' + (sessionIndex + 1) + ' · ' + esc(sessionName || session.mode || 'Workout') + '</b>' + sessionBody + (session.note ? '<p class="sub">“' + esc(session.note) + '”</p>' : '') + '</section>';
+      }).join('');
+      return;
+    }
     if (e.day === 'cardio') { wrap.innerHTML = '<div class="lab" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">' + head + ' · Cardio</div><p class="sub" style="margin:0">' + e.cardio.minutes + ' min · ' + esc(e.cardio.modality) + (e.cardio.avgEffort ? ' · effort ' + e.cardio.avgEffort + '/10' : '') + '</p>'; return; }
     var totMin = 0; (e.exercises || []).forEach(function (it) { (it.sets || []).forEach(function (s) { totMin += (s.durSec || 0); }); });
     var body = (e.exercises || []).map(function (it) {
@@ -1036,7 +1125,7 @@
       return '<div style="margin:8px 0"><div style="font-family:var(--disp);font-weight:600;text-transform:uppercase;font-size:15px">' + esc(ex ? ex.name : it.exId) + '</div>' +
         it.sets.map(function (s, i) { return '<span class="mono" style="font-size:11.5px;color:var(--muted);margin-right:10px">' + (it.cardioMinutes ? s.minutes + ' min' + (s.effort != null ? ' · effort ' + s.effort + '/10' : '') : 'S' + (i + 1) + ': ' + s.reps + '×' + L.toDisplay(s.weight, cfg.units) + (s.durSec ? ' ·' + fmtDur(s.durSec) : '')) + '</span>'; }).join('') + '</div>';
     }).join('');
-    var dayName = ACTIVE_PROGRAM.days[e.day] ? ACTIVE_PROGRAM.days[e.day].name : e.day;
+    var dayName = e.day === 'walkin' ? 'Equipment-led gym visit' : (ACTIVE_PROGRAM.days[e.day] ? ACTIVE_PROGRAM.days[e.day].name : e.day);
     wrap.innerHTML = '<div class="lab" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:2px">' + head + ' · ' + esc(dayName) + (e.mode ? ' · ' + e.mode : '') + '</div>' +
       '<div class="date" style="margin-bottom:6px">' + (e.exercises || []).length + ' exercises · ' + fmtDur(totMin) + ' work' + (e.felt ? ' · felt ' + e.felt + '/5' : '') + '</div>' + body + (e.note ? '<p class="sub" style="margin:8px 0 0">“' + esc(e.note) + '”</p>' : '');
   }
@@ -1238,6 +1327,17 @@
       case 'start-day': showTab('today'); SESSION = { mode: 'alone', phase: 'time', dayId: d('data-day'), budgetMin: null }; renderSession(); break;
       case 'start-cardio': buildAndStart('cardio'); break;
       case 'start-partner': showTab('today'); startPartner(); break;
+      case 'use-equipment': useEquipment(d('data-ex'), d('data-eq')); break;
+      case 'resume-walkin': showTab('today'); break;
+      case 'pick-next-equipment': equipmentView = 'equipment'; equipmentQuery = ''; saveWalkinDraft(); showTab('equipment'); break;
+      case 'finish-visit':
+        if (!SESSION || SESSION.mode !== 'walkin') break;
+        if (!sessionProgress().done) { toast('Log at least one completed set before saving this gym visit'); break; }
+        clearInterval(workInt); clearInterval(restInt); SESSION._rest = null; SESSION.phase = 'summary'; saveWalkinDraft(); showTab('today'); break;
+      case 'discard-walkin':
+        if (!SESSION || SESSION.mode !== 'walkin') break;
+        if (sessionProgress().done) { toast('Completed sets are protected — finish and save this visit'); break; }
+        clearInterval(workInt); clearInterval(restInt); clearWalkinDraft(); SESSION = null; showTab('today'); toast('Empty gym visit cancelled'); break;
       case 'pick-time': SESSION.budgetMin = +d('data-min'); SESSION.phase = 'readiness'; renderSession(); break;
       case 'readiness-pick': SESSION.readiness = SESSION.readiness || { energy: 'normal', soreness: 'mild', sleep: 'okay' }; SESSION.readiness[d('data-key')] = d('data-v'); renderReadiness(); break;
       case 'readiness-continue': trainingProfile.readinessHistory.push({ date: todayISO(), energy: SESSION.readiness.energy, soreness: SESSION.readiness.soreness, sleep: SESSION.readiness.sleep }); trainingProfile.readinessHistory = trainingProfile.readinessHistory.slice(-30); persist(); SESSION.phase = 'focus'; renderSession(); break;
@@ -1253,13 +1353,13 @@
       case 'partner-time': if (!SESSION.picked.length) { toast('Add at least one exercise'); break; } SESSION.phase = 'ptime'; renderSession(); break;
       case 'partner-go': partnerGo(+d('data-min')); break;
       case 'pick-machine': {
-        if (!SESSION || SESSION.mode !== 'partner') break;
+        if (!SESSION || (SESSION.mode !== 'partner' && SESSION.mode !== 'walkin')) break;
         var manualSlot = SESSION.built.slots[SESSION.idx], manualMachine = L.byId(machinesForEx(manualSlot.exId))[d('data-machine')];
         if (!manualMachine) break;
-        manualSlot.machineId = manualMachine.id; manualSlot.zoneId = manualMachine.zoneId || manualSlot.zoneId; manualSlot.machineChoiceReason = 'Selected by you for this partner-led session.';
-        SESSION.built.decisionLog.push({ type: 'partner_equipment_selected', exerciseId: manualSlot.exId, machineId: manualMachine.id, reasons: ['partner-led manual choice'] });
+        manualSlot.machineId = manualMachine.id; manualSlot.zoneId = manualMachine.zoneId || manualSlot.zoneId; manualSlot.machineChoiceReason = SESSION.mode === 'walkin' ? 'Selected directly during this equipment-led gym visit.' : 'Selected by you for this partner-led session.';
+        SESSION.built.decisionLog.push({ type: SESSION.mode === 'walkin' ? 'equipment_visit_selected' : 'partner_equipment_selected', exerciseId: manualSlot.exId, machineId: manualMachine.id, reasons: [SESSION.mode === 'walkin' ? 'equipment-led manual choice' : 'partner-led manual choice'] });
         SESSION.built.route = routeForAssignedSlots(SESSION.built.slots);
-        renderActive(); break;
+        saveWalkinDraft(); renderActive(); break;
       }
       case 'toggle-session-map': SESSION.showMap = !SESSION.showMap; renderActive(); break;
       case 'switch-ex': swapTo(d('data-ex')); break;
@@ -1324,7 +1424,7 @@
         toast(requestedDays + ' training days selected' + (switchedProgram ? ' · ' + ACTIVE_PROGRAM.name + ' selected; history preserved' : ' · history preserved'));
         break;
       }
-      case 'gym-jump': forceGymPicker = true; showTab('today'); break;
+      case 'gym-jump': if (SESSION && SESSION.mode === 'walkin') { toast('Finish or cancel this gym visit before changing gyms'); break; } forceGymPicker = true; showTab('today'); break;
       case 'select-gym': cfg.gymId = d('data-gym') === 'crunch' ? 'crunch' : 'home'; cfg.gymConfirmedOn = todayISO(); forceGymPicker = false; equipmentFilter = 'All'; equipmentZoneFilter = 'All'; equipmentQuery = ''; persist(); applyGymTheme(); routeFromHash(); toast(activeGymName() + ' activated for today'); break;
       case 'equipment-view': equipmentView = d('data-view') === 'exercises' ? 'exercises' : 'equipment'; equipmentQuery = ''; history.replaceState(null, '', '#/equipment'); renderEquipment(); break;
       case 'equipment-zone': equipmentZoneFilter = d('data-zone') || 'All'; renderEquipment(); break;
@@ -1400,7 +1500,7 @@
   document.addEventListener('change', function (e) {
     if (e.target.matches('[data-machine-setting]')) { machineSettings[e.target.getAttribute('data-machine-setting')] = e.target.value.trim(); persist(); toast('Machine setting saved'); }
     if (e.target.matches('[data-exercise-setting]')) { trainingProfile.exerciseSettings[e.target.getAttribute('data-exercise-setting')] = e.target.value.trim(); persist(); toast('Exercise setting saved'); }
-    if (e.target.matches('[data-technique-note]') && SESSION) { SESSION.built.slots[SESSION.idx].techniqueNote = e.target.value.trim(); }
+    if (e.target.matches('[data-technique-note]') && SESSION) { SESSION.built.slots[SESSION.idx].techniqueNote = e.target.value.trim(); saveWalkinDraft(); }
     if (e.target.id === 'importbackup') importBackupFile(e.target.files && e.target.files[0]);
   });
   window.addEventListener('hashchange', routeFromHash);
@@ -1411,6 +1511,7 @@
   /* ---------- boot ---------- */
   applyTheme(); updateHeader(); routeFromHash();
   if (migration.migrated && (Object.keys(log).length || Object.keys(lifts).length)) toast('History migrated safely to AppStateV2');
+  else if (restoredWalkin) toast('Your unfinished gym visit was restored — completed sets are still here');
 
   // Optional Google Drive sync: reflect status in the settings panel, reload on
   // a pulled snapshot, flush pending pushes before the tab is backgrounded.
@@ -1423,4 +1524,6 @@
     window.addEventListener('visibilitychange', function () { if (document.hidden) window.MDRIVE.flush(); });
     window.addEventListener('pagehide', function () { window.MDRIVE.flush(); });
   }
+  window.addEventListener('visibilitychange', function () { if (document.hidden) saveWalkinDraft(); });
+  window.addEventListener('pagehide', saveWalkinDraft);
 })();

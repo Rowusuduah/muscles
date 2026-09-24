@@ -392,7 +392,7 @@ test('partner-led sessions combine multiple areas, mixed cardio and an explicit 
   assert.match(app, /Back \+ Arms \+ Cardio/);
   assert.match(app, /Mat \/ Abs/);
   assert.match(app, /data-action="toggle-part"/);
-  assert.match(app, /if \(SESSION\.mode !== 'partner'\) plan\.cycleIndex/);
+  assert.match(app, /if \(SESSION\.mode === 'alone'\) plan\.cycleIndex/);
   const custom = L.buildCustom(['db_row', 'db_curl', 'lying_leg_raise', 'treadmill_steady'], EX, 120, 'Back + Arms + Mat / Abs + Cardio');
   assert.equal(custom.mode, 'partner');
   assert.equal(custom.budgetMin, 120);
@@ -403,6 +403,22 @@ test('partner-led sessions combine multiple areas, mixed cardio and an explicit 
   assert.equal(cardio.ex.measure, 'minutes');
   assert.deepEqual(cardio.ex.repRange, [10, 30]);
   assert.equal(L.cardioMinutes({ '2026-09-24': { exercises: [{ exId: 'treadmill_steady', cardioMinutes: 20, sets: [{ minutes: 20, effort: 4 }] }] } }, '2026-09-24', 7), 20);
+});
+
+test('equipment-led visits preserve every same-day session and expose the direct logging flow', () => {
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  const log = { '2026-09-24': { day: 'full_a', mode: 'alone', gymId: 'home', exercises: [{ exId: 'db_bench', sets: [{ reps: 10, weight: 40 }] }], sessionDurationSec: 1800 } };
+  L.appendDailyEntry(log, '2026-09-24', { day: 'walkin', mode: 'walkin', gymId: 'home', exercises: [{ exId: 'db_curl', machineId: 'eq-test', sets: [{ reps: 12, weight: 20 }] }], sessionDurationSec: 900 });
+  assert.equal(log['2026-09-24'].sessions.length, 2);
+  assert.deepEqual(log['2026-09-24'].exercises.map((item) => item.exId), ['db_bench', 'db_curl']);
+  assert.equal(log['2026-09-24'].sessionDurationSec, 2700);
+  assert.equal(L.sessionCount(log), 2);
+  assert.match(app, /Use &amp; log this equipment/);
+  assert.match(app, /data-action=\"use-equipment\"/);
+  assert.match(app, /data-action=\"pick-next-equipment\"/);
+  assert.match(app, /case 'discard-walkin'/);
+  assert.match(app, /muscles-walkin-draft/);
+  assert.match(app, /SESSION\.mode === 'alone'\) plan\.cycleIndex/);
 });
 
 test('guided load test identifies a suitable load without guessing and respects assistance semantics', () => {
@@ -446,7 +462,7 @@ test('installed app exposes explicit update checking and a new versioned cache',
   assert.match(html, /window\.MUSCLES_UPDATES/);
   assert.match(html, /reg\.update\(\)/);
   assert.match(html, /visibilitychange/);
-  assert.match(sw, /2026-09-24-r17/);
+  assert.match(sw, /2026-09-24-r18/);
 });
 
 test('motion guide has detailed phases and an exercise-specific plank-drag view', () => {

@@ -263,6 +263,51 @@
     };
   }
 
+  /* ---------------- same-day session preservation ---------------- */
+  function sessionCopy(entry) {
+    var copy = JSON.parse(JSON.stringify(entry || {}));
+    delete copy.sessions;
+    return copy;
+  }
+  function appendDailyEntry(log, date, entry) {
+    log = log || {};
+    if (!log[date]) {
+      log[date] = entry;
+      return log[date];
+    }
+    var existing = log[date];
+    var sessions = (existing.sessions && existing.sessions.length ? existing.sessions : [existing]).map(sessionCopy);
+    sessions.push(sessionCopy(entry));
+    var exercises = [], decisions = [], notes = [], duration = 0, cardioMin = 0, cardioEffort = [];
+    sessions.forEach(function (session) {
+      exercises = exercises.concat(session.exercises || []);
+      decisions = decisions.concat(session.decisions || []);
+      if (session.note) notes.push(session.note);
+      duration += Number(session.sessionDurationSec || 0);
+      if (session.cardio) {
+        cardioMin += Number(session.cardio.minutes || 0);
+        if (session.cardio.avgEffort != null) cardioEffort.push(Number(session.cardio.avgEffort));
+      }
+    });
+    log[date] = {
+      day: 'multiple', mode: 'mixed', gymId: entry.gymId || existing.gymId || null,
+      goal: entry.goal || existing.goal || null, exercises: exercises,
+      felt: entry.felt || null, note: notes.join(' · '),
+      sessionDurationSec: duration || null, decisions: decisions, sessions: sessions
+    };
+    if (cardioMin) log[date].cardio = {
+      modality: 'mixed', kind: 'mixed', minutes: cardioMin,
+      avgEffort: cardioEffort.length ? Math.round(cardioEffort.reduce(function (sum, value) { return sum + value; }, 0) / cardioEffort.length) : null
+    };
+    return log[date];
+  }
+  function sessionCount(log) {
+    return Object.keys(log || {}).reduce(function (total, date) {
+      var entry = log[date];
+      return total + (entry && entry.sessions && entry.sessions.length ? entry.sessions.length : 1);
+    }, 0);
+  }
+
   /* ---------------- weekly analysis ---------------- */
   function daysBetween(aISO, bISO) {
     var a = new Date(aISO + 'T00:00:00'), b = new Date(bISO + 'T00:00:00');
@@ -472,6 +517,7 @@
     fitToBudget: fitToBudget, buildCustom: buildCustom, altsForExercise: altsForExercise,
     recentMuscles: recentMuscles, lastDayId: lastDayId, nextAloneDay: nextAloneDay, exercisesForBodyPart: exercisesForBodyPart,
     prescribe: prescribe, acceptReduction: acceptReduction, updateLift: updateLift, assessLoadTest: assessLoadTest,
+    appendDailyEntry: appendDailyEntry, sessionCount: sessionCount,
     weeklyVolume: weeklyVolume, cardioMinutes: cardioMinutes, heat: heat, recommendations: recommendations,
     streak: streak, bestStreak: bestStreak, weeklyConsistency: weeklyConsistency, consistencyLevel: consistencyLevel, totalSets: totalSets, rank: rank,
     busyAlternatives: busyAlternatives, RANKS: RANKS
