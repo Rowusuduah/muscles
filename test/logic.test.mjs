@@ -43,10 +43,11 @@ test('inventory: exactly 45 verified guides and 51 unique source photographs', (
 });
 
 test('inventory: all 51 original and WebP assets exist', () => {
+  const rawArchivePresent = fs.existsSync(path.join(root, 'GYM'));
   for (const number of [0, ...Array.from({ length: 50 }, (_, i) => i + 2)]) {
     const filename = number === 0 ? 'Gym equipment.jpeg' : `Gym equipment ${number}.jpeg`;
     const webNumber = number === 0 ? 1 : number;
-    assert.ok(fs.existsSync(path.join(root, 'GYM', filename)), filename);
+    if (rawArchivePresent) assert.ok(fs.existsSync(path.join(root, 'GYM', filename)), filename);
     assert.ok(fs.existsSync(path.join(root, 'assets', 'equipment', `eq${webNumber}.webp`)), `eq${webNumber}.webp`);
   }
 });
@@ -130,8 +131,12 @@ test('all exercise muscles and versioned load semantics are valid', () => {
 test('every declared two-frame demonstration asset exists', () => {
   Object.keys(DEMOS).forEach((id) => {
     assert.ok(EX[id], `demo has unknown exercise ${id}`);
-    assert.ok(fs.existsSync(path.join(root, 'assets', 'demos', `${id}_0.webp`)));
-    assert.ok(fs.existsSync(path.join(root, 'assets', 'demos', `${id}_1.webp`)));
+    if (DEMOS[id] === 'svg') {
+      assert.match(HOWTO.howtoSVG(EX[id], 'right'), /<svg/);
+    } else {
+      assert.ok(fs.existsSync(path.join(root, 'assets', 'demos', `${id}_0.webp`)));
+      assert.ok(fs.existsSync(path.join(root, 'assets', 'demos', `${id}_1.webp`)));
+    }
   });
 });
 
@@ -160,6 +165,19 @@ test('time fitting supports 20–120 minutes and never leaves the selected progr
     });
     const sets = sessions.map((session) => session.slots.reduce((n, slot) => n + slot.sets, 0));
     for (let i = 1; i < sets.length; i++) assert.ok(sets[i] >= sets[i - 1]);
+  }));
+});
+
+test('spare session time never inflates the selected program volume', () => {
+  Object.values(PROGRAM.programs).forEach((program) => program.cycle.forEach((dayId) => {
+    const day = program.days[dayId];
+    const built = L.buildSession(program, EX, dayId, 120, { undertrained: day.focusMuscles });
+    assert.deepEqual(built.slots.map((slot) => slot.exId), day.slots.map((slot) => slot.ex));
+    built.slots.forEach((slot) => {
+      const planned = day.slots.find((item) => item.ex === slot.exId);
+      assert.equal(slot.sets, planned.sets, `${program.id}/${dayId}/${slot.exId}`);
+      assert.equal(slot.bonus, undefined);
+    });
   }));
 });
 

@@ -78,7 +78,9 @@
     });
   }
 
-  // fit a slots array to a time budget: keep compounds + first core, trim/expand the rest
+  // Fit a slots array to a time ceiling: keep compounds + first core and trim
+  // only when necessary. Spare time never manufactures extra sets or exercises;
+  // the selected program remains the volume authority.
   function fitToBudget(slots, budgetMin, ctx, EX) {
     ctx = ctx || {};
     var budget = (budgetMin || 60) * 60;
@@ -95,28 +97,6 @@
       for (var j = slots.length - 1; j >= 0; j--) { var floor = slots[j].role === 'compound' ? 3 : 2; if (slots[j].sets > floor) { slots[j].sets -= 1; shaved = true; break; } }
       if (!shaved) { for (var k = slots.length - 1; k >= 0; k--) { if (slots[k].sets > 2) { slots[k].sets -= 1; shaved = true; break; } } }
       if (!shaved) break;
-    }
-    function canAddSet() {
-      for (var a = 0; a < slots.length; a++) {
-        var role = slots[a].role;
-        var cap = role === 'core' ? 3 : 4;
-        if (slots[a].sets < cap && sumSeconds(slots) + (SET_SEC + slots[a].ex.restSec) <= budget) return a;
-      }
-      return -1;
-    }
-    var guard = 0; while (guard++ < 40) { var a = canAddSet(); if (a < 0) break; slots[a].sets += 1; }
-    if (EX && ctx.undertrained) {
-      var present = {}; slots.forEach(function (s) { present[s.exId] = true; });
-      ctx.undertrained.forEach(function (mid) {
-        var cands = accessoryForMuscle(mid, EX, present);
-        if (cands.length) {
-          var ex = cands[0];
-          if (sumSeconds(slots) + slotSeconds(ex, ex.sets) <= budget) {
-            slots.splice(slots.length - 1, 0, { role: 'accessory', target: mid, exId: ex.id, ex: ex, alt: [], sets: ex.sets, essential: false, bonus: true });
-            present[ex.id] = true;
-          }
-        }
-      });
     }
     return slots;
   }

@@ -33,6 +33,19 @@
       liftHistory: {},
       machineSettings: {},
       customLabels: {},
+      trainingProfile: {
+        version: 1,
+        goal: 'hypertrophy',
+        preferredSessionDuration: 60,
+        availableDumbbellsLb: [],
+        preferences: { preferred: {}, avoided: {}, substitutionCounts: {}, skippedCounts: {} },
+        exerciseSettings: {},
+        readinessHistory: [],
+        typicalRestSec: {},
+        typicalExerciseSec: {},
+        discomfort: {}
+      },
+      decisionLog: [],
       migration: { fromVersion: null, migratedAt: null }
     };
   }
@@ -57,6 +70,23 @@
     base.liftHistory = plainObject(state.liftHistory) ? state.liftHistory : {};
     base.machineSettings = plainObject(state.machineSettings) ? state.machineSettings : {};
     base.customLabels = plainObject(state.customLabels) ? state.customLabels : {};
+    if (plainObject(state.trainingProfile)) {
+      var profile = state.trainingProfile;
+      base.trainingProfile.goal = ['hypertrophy', 'strength_muscle', 'general_fitness'].indexOf(profile.goal) >= 0 ? profile.goal : 'hypertrophy';
+      base.trainingProfile.preferredSessionDuration = [20, 30, 45, 60, 90, 120].indexOf(Number(profile.preferredSessionDuration)) >= 0 ? Number(profile.preferredSessionDuration) : 60;
+      base.trainingProfile.availableDumbbellsLb = Array.isArray(profile.availableDumbbellsLb) ? profile.availableDumbbellsLb.map(Number).filter(function (n) { return isFinite(n) && n > 0; }).sort(function (a, b) { return a - b; }).filter(function (n, i, a) { return i === 0 || n !== a[i - 1]; }) : [];
+      base.trainingProfile.preferences = plainObject(profile.preferences) ? Object.assign(base.trainingProfile.preferences, profile.preferences) : base.trainingProfile.preferences;
+      base.trainingProfile.preferences.preferred = plainObject(base.trainingProfile.preferences.preferred) ? base.trainingProfile.preferences.preferred : {};
+      base.trainingProfile.preferences.avoided = plainObject(base.trainingProfile.preferences.avoided) ? base.trainingProfile.preferences.avoided : {};
+      base.trainingProfile.preferences.substitutionCounts = plainObject(base.trainingProfile.preferences.substitutionCounts) ? base.trainingProfile.preferences.substitutionCounts : {};
+      base.trainingProfile.preferences.skippedCounts = plainObject(base.trainingProfile.preferences.skippedCounts) ? base.trainingProfile.preferences.skippedCounts : {};
+      base.trainingProfile.exerciseSettings = plainObject(profile.exerciseSettings) ? profile.exerciseSettings : {};
+      base.trainingProfile.readinessHistory = Array.isArray(profile.readinessHistory) ? profile.readinessHistory.slice(-30) : [];
+      base.trainingProfile.typicalRestSec = plainObject(profile.typicalRestSec) ? profile.typicalRestSec : {};
+      base.trainingProfile.typicalExerciseSec = plainObject(profile.typicalExerciseSec) ? profile.typicalExerciseSec : {};
+      base.trainingProfile.discomfort = plainObject(profile.discomfort) ? profile.discomfort : {};
+    }
+    base.decisionLog = Array.isArray(state.decisionLog) ? state.decisionLog.slice(-100) : [];
     base.migration = plainObject(state.migration) ? Object.assign(base.migration, state.migration) : base.migration;
     return base;
   }
