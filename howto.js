@@ -42,6 +42,22 @@
     antiext: pose({ torso: [0, 0] }, STAND, 3.0),
     leghang: pose({ uarm: [-172, -172], farm: [-4, -4], thigh: [-2, -82], shin: [-6, -34] }, {}, 2.6),
     pushup: pose({ torso: [92, 92], uarm: [-92, -92], farm: [-6, -6] }, { thigh: [-92, -92], shin: [-2, -2] }, 2.0),
+    pullover: pose({ torso: [-80, -80], uarm: [-92, -172], farm: [-8, -8] }, { thigh: [-28, -28], shin: [64, 64] }, 2.8),
+    arnold_press: pose({ uarm: [-42, -172], farm: [-118, -4] }, SEAT, 2.8),
+    front_raise: pose({ uarm: [2, -88], farm: [-6, -6] }, STAND, 2.2),
+    upright_row: pose({ uarm: [2, -78], farm: [-8, 68] }, STAND, 2.2),
+    overhead_extension: pose({ uarm: [-170, -170], farm: [-132, -6] }, STAND, 2.4),
+    kickback: pose({ torso: [52, 52], uarm: [-116, -116], farm: [104, 4] }, STAND, 2.2),
+    single_leg_hinge: pose({ torso: [2, 52], uarm: [-4, -4], thigh: [0, -12], shin: [0, 4] }, STAND, 2.8),
+    step_up: pose({ torso: [2, 6], thigh: [4, -72], shin: [0, 70] }, STAND, 2.6),
+    lateral_lunge: pose({ torso: [0, 8] }, STAND, 2.6),
+    side_bend: pose({ torso: [-18, 18] }, STAND, 2.6),
+    carry: pose({ uarm: [-8, 8], farm: [-4, -4], thigh: [20, -22], shin: [24, 58] }, STAND, 1.4),
+    plank_drag: pose({ torso: [92, 92], uarm: [-92, -122], farm: [-6, -28] }, { thigh: [-92, -92], shin: [-2, -2] }, 2.6),
+    thruster: pose({ torso: [4, 12], uarm: [-58, -172], farm: [-34, -4], thigh: [0, -80], shin: [0, 66] }, STAND, 3.0),
+    clean: pose({ torso: [46, 4], uarm: [-4, -54], farm: [-6, -112], thigh: [-6, -44], shin: [0, 42] }, STAND, 2.2),
+    push_press: pose({ torso: [0, 0], uarm: [-58, -172], farm: [-34, -4], thigh: [0, -30], shin: [0, 24] }, STAND, 2.2),
+    hinge_row: pose({ torso: [52, 52], uarm: [-84, -118], farm: [-8, -56], thigh: [-8, -8] }, STAND, 2.8),
     'default': pose({ uarm: [-8, -26] }, STAND, 2.4)
   };
   ANIM.calf.rootBob = true; ANIM.shrug.rootBob = true; ANIM.pushup.rootBob = true;
@@ -53,12 +69,14 @@
     shrug: 'stand', squat: 'squat', leg_press: 'legpress', hinge: 'stand', lunge: 'stand', leg_ext: 'legmachine',
     leg_curl: 'legmachine', calf: 'stand', crunch: 'seat', rotation: 'stand', abduction: 'legmachine', adduction: 'legmachine', cardio: 'tread', arm_cardio: 'ergometer', bike_cardio: 'bike', dead_bug: 'floor', antiext: 'floor', 'default': 'stand'
   };
+  ['pullover','arnold_press','front_raise','upright_row','overhead_extension','kickback','single_leg_hinge','step_up','lateral_lunge','side_bend','carry','plank_drag','thruster','clean','push_press','hinge_row'].forEach(function (p) { CTX[p] = p === 'pullover' ? 'benchflat' : (p === 'plank_drag' ? 'floor' : 'stand'); });
   var WRONG = {
     horizontal_press: 'half', incline_press: 'half', vertical_press: 'half', fly: 'half', row: 'swing', rear_fly: 'swing',
     vertical_pull: 'lean', lat_iso: 'half', curl: 'swing', tri_ext: 'flare', tri_press: 'half', lateral: 'high',
     shrug: 'roll', squat: 'shallow', leg_press: 'shallow', hinge: 'round', lunge: 'shallow', leg_ext: 'half',
     leg_curl: 'half', calf: 'bounce', crunch: 'neck', rotation: 'fast', abduction: 'half', adduction: 'half', cardio: 'hard', arm_cardio: 'hard', bike_cardio: 'hard', dead_bug: 'sag', antiext: 'sag', 'default': 'half'
   };
+  ['pullover','arnold_press','front_raise','upright_row','overhead_extension','kickback','single_leg_hinge','step_up','lateral_lunge','side_bend','carry','plank_drag','thruster','clean','push_press','hinge_row'].forEach(function (p) { WRONG[p] = p === 'single_leg_hinge' || p === 'hinge_row' ? 'round' : (p === 'plank_drag' ? 'sag' : 'swing'); });
   var WRONG_LABEL = {
     half: 'Half reps — no full range', swing: 'Swinging with the body', lean: 'Leaning way back / behind the neck',
     flare: 'Elbows flaring and drifting', high: 'Raising too high, using the traps', roll: 'Rolling the shoulders',
@@ -96,6 +114,16 @@
     bike_cardio: ['Set the seat for a small knee bend.', 'Pedal smoothly without rocking the hips.', 'Hold a conversational effort.', 'Cool down before stopping.'],
     dead_bug: ['Press the low back gently into the mat.', 'Reach opposite arm and leg away slowly.', 'Exhale while the limbs extend.', 'Return and alternate sides.'],
     antiext: ['Forearms down, body in a line.', 'Squeeze abs and glutes.', 'Don’t sag or pike.', 'Breathe — hold the time shown.'],
+    pullover: ['Lie lengthwise with the head supported.', 'Keep a soft fixed elbow bend.', 'Lower behind the head only while ribs stay down.', 'Pull the dumbbell back over the chest.'],
+    front_raise: ['Stand tall with light dumbbells.', 'Raise forward without leaning.', 'Stop around shoulder height.', 'Lower slowly.'],
+    overhead_extension: ['Brace with arms overhead.', 'Bend only the elbows.', 'Lower behind the head under control.', 'Extend without arching.'],
+    kickback: ['Support the torso and hold upper arm beside it.', 'Straighten the elbow fully.', 'Pause with the arm long.', 'Return the forearm only.'],
+    carry: ['Pick up with a controlled hinge.', 'Stand tall and brace.', 'Walk with short quiet steps.', 'Set down before grip fails.'],
+    plank_drag: ['Set a wide-foot high plank.', 'Reach under and drag the bell across.', 'Keep hips square.', 'Reset before alternating.'],
+    thruster: ['Rack the dumbbells and squat.', 'Drive up through the feet.', 'Continue the drive into a press.', 'Finish stacked overhead.'],
+    clean: ['Set a strong hinge.', 'Drive with hips and legs.', 'Guide the bells close.', 'Receive softly at the shoulders.'],
+    push_press: ['Rack the dumbbells.', 'Dip a few inches straight down.', 'Drive with the legs.', 'Finish the press overhead.'],
+    hinge_row: ['Hinge first and hold the torso.', 'Row without standing up.', 'Lower the dumbbells.', 'Extend the hips to finish.'],
     'default': ['Set up braced and stable.', 'Move through the full range with control.', 'Squeeze at the hardest point.', 'Return slowly — form over weight.']
   };
 
@@ -236,6 +264,10 @@
       if (freeBar) { m.ctx = 'benchincline'; m.torso = -44; m.legs = { thigh: [-34, -34], shin: [62, 62] }; }
       else m.ctx = 'seat';
     } else if (pat === 'vertical_press') { m.ctx = freeBar ? 'stand' : 'seat'; }
+    else if (pat === 'arnold_press') { m.ctx = 'seat'; m.torso = 0; }
+    else if (pat === 'pullover') { m.ctx = 'benchflat'; m.torso = -80; m.legs = lieLegs; }
+    else if (pat === 'overhead_extension') { m.ctx = 'stand'; }
+    else if (pat === 'kickback') { m.ctx = 'benchsupport'; m.torso = 52; }
     else if (pat === 'vertical_pull') { if (eq === 'bodyweight') { m.ctx = 'hang'; m.impl = 'none'; m.legs = { thigh: [3, 3], shin: [3, 3] }; } else { m.ctx = 'pulldown'; m.impl = 'bar'; } }
     else if (pat === 'row') { if (eq === 'dumbbell') { m.ctx = 'benchsupport'; m.torso = -66; m.legs = { thigh: [-40, -40], shin: [42, 42] }; } else if (eq === 'cable') m.ctx = 'cable'; else m.ctx = 'seat'; }
     else if (pat === 'fly' || pat === 'rear_fly') { m.ctx = eq === 'cable' ? 'cable' : 'seat'; }
@@ -251,7 +283,8 @@
     else if (pat === 'lateral') { m.ctx = 'stand'; }
     else if (pat === 'shrug') { m.ctx = 'stand'; }
     else if (pat === 'crunch') { if (id === 'hanging_leg_raise') { m.ctx = 'hang'; m.pat = 'leghang'; m.impl = 'none'; } else { m.ctx = id === 'cable_crunch' ? 'cable' : (id === 'ab_crunch_machine' ? 'seat' : 'floor'); m.impl = m.ctx === 'floor' ? 'none' : m.impl; } }
-    else if (pat === 'rotation' || pat === 'antiext') { m.ctx = 'floor'; m.impl = 'none'; if (pat === 'antiext') { m.torso = -86; m.legs = { thigh: [-90, -90], shin: [0, 0] }; } }
+    else if (pat === 'rotation' || pat === 'antiext') { m.ctx = 'floor'; if (pat === 'antiext') { m.impl = 'none'; m.torso = -86; m.legs = { thigh: [-90, -90], shin: [0, 0] }; } }
+    else if (pat === 'plank_drag') { m.ctx = 'floor'; m.torso = 92; m.legs = { thigh: [-92, -92], shin: [-2, -2] }; }
     else if (pat === 'cardio') { if (id === 'upper_body_ergometer') { m.ctx = 'ergometer'; m.pat = 'arm_cardio'; } else if (id === 'recumbent_bike') { m.ctx = 'bike'; m.pat = 'bike_cardio'; } else { m.ctx = 'tread'; } m.impl = 'none'; }
     else if (pat === 'dead_bug') { m.ctx = 'floor'; m.pat = 'dead_bug'; m.impl = 'none'; }
     else if (pat === 'lat_iso') { m.ctx = 'cable'; }
@@ -265,7 +298,7 @@
   }
 
   /* ---------- FRONT-VIEW rig (frontal-plane movements the side view can't show) ---------- */
-  var FRONT_PATS = { lateral: 1, fly: 1, rear_fly: 1, abduction: 1, adduction: 1 };
+  var FRONT_PATS = { lateral: 1, fly: 1, rear_fly: 1, abduction: 1, adduction: 1, lateral_lunge: 1 };
   // upper-arm angles are mirrored L/R; 0 = arm down at the side, larger = out/up
   function frontPose(ex) {
     var pat = ex.pattern, id = ex.id;
@@ -278,6 +311,7 @@
     else if (pat === 'rear_fly') { f.la = [26, 90]; f.ra = [-26, -90]; f.seated = true; f.dur = 2.6; }
     else if (pat === 'abduction') { f.la = [6, 6]; f.ra = [-6, -6]; f.lt = [8, 44]; f.rt = [-8, -44]; f.seated = true; f.legMove = true; f.dur = 2.2; }
     else if (pat === 'adduction') { f.la = [6, 6]; f.ra = [-6, -6]; f.lt = [44, 8]; f.rt = [-44, -8]; f.seated = true; f.legMove = true; f.dur = 2.2; }
+    else if (pat === 'lateral_lunge') { f.lt = [8, 52]; f.rt = [-8, -8]; f.legMove = true; f.dur = 2.8; }
     return f;
   }
   function frontBad(f) {
@@ -370,9 +404,14 @@
     return STEPS[pattern] || STEPS['default'];
   }
   function wrongLabel(input) {
-    if (typeof input === 'object' && input && input.mistakes && input.mistakes.length) return input.mistakes[0];
+    if (typeof input === 'object' && input && input.mistakes && input.mistakes.length) return typeof input.mistakes[0] === 'object' ? input.mistakes[0].mistake : input.mistakes[0];
     var pattern = typeof input === 'object' && input ? input.pattern : input;
     return WRONG_LABEL[WRONG[pattern] || 'half'] || 'Common mistake';
   }
-  return { howtoSVG: howtoSVG, steps: steps, wrongLabel: wrongLabel, hasPattern: function (p) { return !!ANIM[p]; } };
+  function duration(input) {
+    var pattern = typeof input === 'object' && input ? input.pattern : input;
+    var move = typeof input === 'object' && input ? deriveMove(input) : { pat: pattern };
+    return ((ANIM[move.pat || pattern] || ANIM['default']).dur || 2.4) * 1.2;
+  }
+  return { howtoSVG: howtoSVG, steps: steps, wrongLabel: wrongLabel, duration: duration, hasPattern: function (p) { return !!ANIM[p]; } };
 });

@@ -1566,6 +1566,17 @@
     };
   }
 
+  // The observed rack establishes dumbbell availability for the complete exercise
+  // library; a unique equipment photograph per movement is neither necessary nor
+  // implied. Bench-dependent movements also map to the photographed benches.
+  var dumbbellLibrary=(window.DUMBBELL_EXERCISES||[]);
+  var rackRaw=RAW.filter(function(item){return item.id==='cr-dumbbell-rack';})[0];
+  var adjustableBenchRaw=RAW.filter(function(item){return item.id==='cr-adjustable-bench';})[0];
+  var seatedBenchRaw=RAW.filter(function(item){return item.id==='cr-seated-utility-bench';})[0];
+  if(rackRaw) rackRaw.ex=dumbbellLibrary.map(function(ex){return ex.id;});
+  if(adjustableBenchRaw) adjustableBenchRaw.ex=Array.from(new Set(adjustableBenchRaw.ex.concat(dumbbellLibrary.filter(function(ex){return ex.requiresBench;}).map(function(ex){return ex.id;}))));
+  if(seatedBenchRaw) seatedBenchRaw.ex=Array.from(new Set(seatedBenchRaw.ex.concat(dumbbellLibrary.filter(function(ex){return ex.requiresBench&&['Shoulders','Arms'].indexOf(ex.family)>=0;}).map(function(ex){return ex.id;}))));
+
   window.CRUNCH_GUIDES=RAW.map(expand);
   window.CRUNCH_EQUIPMENT=window.CRUNCH_GUIDES.map(function(g){
     return {id:g.id,guideId:g.id,name:g.identity,type:'Crunch Fitness',category:g.category,categoryColor:g.categoryColor,

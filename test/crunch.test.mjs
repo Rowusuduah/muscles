@@ -10,10 +10,11 @@ const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROGRAM = require('../data/program.js');
 const EXERCISES = require('../data/exercises.js');
+const DUMBBELL_EXERCISES = require('../data/dumbbells.js');
 const EX = Object.fromEntries(EXERCISES.map((exercise) => [exercise.id, exercise]));
 
 const source = fs.readFileSync(path.join(root, 'data', 'crunch.js'), 'utf8');
-const context = { window: {} };
+const context = { window: { DUMBBELL_EXERCISES } };
 vm.createContext(context);
 vm.runInContext(source, context, { filename: 'data/crunch.js' });
 
@@ -47,7 +48,7 @@ test('manual-only or ambiguous Crunch equipment can never enter automatic workou
   for (const guide of GUIDES.filter((guide) => guide.autoEligible === false)) {
     const item = equipmentById[guide.id];
     assert.ok(item, guide.id);
-    assert.deepEqual(item.exerciseIds, [], guide.id + ' exposed exercise IDs despite manual-only status');
+    assert.deepEqual(Array.from(item.exerciseIds), [], guide.id + ' exposed exercise IDs despite manual-only status');
   }
 });
 
@@ -63,7 +64,7 @@ test('every programmed workout slot has a verified Crunch movement or verified p
       }
     }
   }
-  assert.deepEqual(unresolved, []);
+  assert.deepEqual(Array.from(unresolved), []);
 });
 
 test('all Crunch coach-linked exercise IDs exist in the exercise library', () => {

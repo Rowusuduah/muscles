@@ -7,9 +7,9 @@
      cues[], mistakes[], pickWeight, difficulty
    `pattern` is used to rank same-muscle alternatives for busy-machine swaps. */
 (function (root, factory) {
-  if (typeof module !== 'undefined' && module.exports) module.exports = factory();
-  else root.EXERCISES = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module !== 'undefined' && module.exports) module.exports = factory(require('./dumbbells.js'));
+  else root.EXERCISES = factory(root.DUMBBELL_EXERCISES || []);
+})(typeof self !== 'undefined' ? self : this, function (dumbbellExercises) {
   var C = function (o) { return o; };
   var list = [
     /* ---------------- CHEST ---------------- */
@@ -437,6 +437,15 @@
       pickWeight: 'Start with 10 easy minutes and build duration first.', difficulty: 'beginner' }
   ];
 
+  // Merge the encyclopedia by stable ID. Existing IDs are enriched in place so
+  // AppStateV2 history remains readable; only genuinely new IDs are appended.
+  var listById = {};
+  list.forEach(function (item, index) { listById[item.id] = index; });
+  (dumbbellExercises || []).forEach(function (item) {
+    if (listById[item.id] != null) list[listById[item.id]] = Object.assign({}, list[listById[item.id]], item);
+    else { listById[item.id] = list.length; list.push(item); }
+  });
+
   var deprecated = {
     sel_chest_press: true, sel_shoulder_press: true, hack_squat: true,
     hip_abduction: true, seated_calf: true, elliptical_steady: true,
@@ -456,6 +465,7 @@
     exercise.loadMode = loadMode;
     exercise.movementPattern = exercise.pattern;
     exercise.defaultRIR = 2;
+    if (exercise.handedness) exercise.unilateral = exercise.handedness === 'unilateral' || exercise.handedness === 'alternating';
     exercise.prescription = { sets: exercise.sets, repRange: exercise.repRange.slice(), restSec: exercise.restSec };
     return exercise;
   });
