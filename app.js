@@ -3,7 +3,7 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
-  var APP_RELEASE = '2026.09.24.6';
+  var APP_RELEASE = '2026.09.24.7';
   var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
   var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
