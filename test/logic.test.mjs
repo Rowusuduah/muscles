@@ -333,3 +333,41 @@ test('theme and weekly training-day controls remain available after onboarding',
   assert.match(app, /\[2, 3, 4, 5, 6, 7\]/); // 2–7 training days selectable
   assert.match(app, /history preserved/);
 });
+
+test('daily gym confirmation is additive state and never removes workout history', () => {
+  const state = APPSTATE.defaultState();
+  state.config.gymId = 'crunch';
+  state.config.gymConfirmedOn = '2026-09-23';
+  state.workoutLogs['2026-09-22'] = { gymId: 'home', exercises: [{ exId: 'db_bench' }] };
+  const normalized = APPSTATE.normalize(state);
+  assert.equal(normalized.config.gymId, 'crunch');
+  assert.equal(normalized.config.gymConfirmedOn, '2026-09-23');
+  assert.deepEqual(normalized.workoutLogs, state.workoutLogs);
+  state.config.gymConfirmedOn = 'not-a-date';
+  assert.equal(APPSTATE.normalize(state).config.gymConfirmedOn, '');
+});
+
+test('first-page gym gate scopes the exercise browser and exposes Crunch orange mode', () => {
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(app, /Which gym are you at today\?/);
+  assert.match(app, /gymChoiceCards\('select-daily-gym'\)/);
+  assert.match(app, /cfg\.gymConfirmedOn = todayISO\(\)/);
+  assert.match(app, /return typeMatch && familyMatch[^;]+&& available\[ex\.id\]/);
+  assert.match(html, /html\[data-gym="crunch"\]/);
+  assert.match(html, /--ember:#F58220/);
+  assert.match(app, /Everything shown below is available at this gym/);
+});
+
+test('motion guide has detailed phases and an exercise-specific plank-drag view', () => {
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  const svg = HOWTO.howtoSVG(EX.db_plank_drag, 'right');
+  assert.match(app, /Set up before the first rep/);
+  assert.match(app, /Perform one clean rep/);
+  assert.match(app, /Range/);
+  assert.match(app, /Breathing/);
+  assert.match(app, /Tempo/);
+  assert.match(svg, /Top view of a wide high plank/);
+  assert.match(svg, /values="70,108;118,108/);
+  assert.match(svg, /var\(--ember\)/);
+});
