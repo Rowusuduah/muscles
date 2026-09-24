@@ -77,6 +77,7 @@
   /* ---------------- session builder (time-aware) ---------------- */
   var SET_SEC = 40, SETUP_SEC = 60;
   function slotSeconds(ex, sets) {
+    if (ex.measure === 'minutes') return Math.max(5, Number(ex.targetMinutes) || Number(ex.repRange && ex.repRange[0]) || 10) * 60 + SETUP_SEC;
     if (ex.role === 'core' && ex.pattern === 'antiext') {        // plank = time holds
       return sets * (ex.repRange[1] + ex.restSec) + SETUP_SEC;
     }
@@ -142,8 +143,9 @@
   /* Build a freeform session from an explicit exercise-id list (partner mode). */
   function buildCustom(exIds, EX, budgetMin, name) {
     var slots = exIds.map(function (id) {
-      var ex = EX[id]; if (!ex) return null;
-      return { role: ex.role, target: ex.primary[0], exId: id, ex: ex, alt: altsForExercise(id, EX), sets: ex.sets };
+      var source = EX[id]; if (!source) return null;
+      var ex = source.role === 'cardio' ? Object.assign({}, source, { sets: 1, repRange: [10, 30], measure: 'minutes', targetMinutes: budgetMin && budgetMin >= 90 ? 20 : 15, restSec: 0, defaultRIR: null }) : source;
+      return { role: ex.role, target: ex.primary[0] || 'cardio', exId: id, ex: ex, alt: altsForExercise(id, EX), sets: ex.sets };
     }).filter(Boolean);
     if (budgetMin) fitToBudget(slots, budgetMin, {}, EX);
     var focus = {}; slots.forEach(function (s) { (s.ex.primary || []).forEach(function (m) { focus[m] = 1; }); });
@@ -294,6 +296,7 @@
       var d = daysBetween(date, todayISO);
       if (d < 0 || d >= days) return;
       if (log[date].cardio) tot += (log[date].cardio.minutes || 0);
+      (log[date].exercises || []).forEach(function (exercise) { tot += Number(exercise.cardioMinutes || 0); });
     });
     return tot;
   }

@@ -3,7 +3,7 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
-  var APP_RELEASE = '2026.09.24.4';
+  var APP_RELEASE = '2026.09.24.5';
   var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
   var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
@@ -237,26 +237,51 @@
   }
 
   /* ---------- PARTNER flow ---------- */
-  function startPartner() { SESSION = { mode: 'partner', phase: 'part' }; renderSession(); }
+  function startPartner() { SESSION = { mode: 'partner', phase: 'part', parts: [], picked: [] }; renderSession(); }
+  function partnerAreas() {
+    return ACTIVE_PROGRAM.bodyParts.concat([{ id: 'cardio', name: 'Cardio', muscles: [] }]);
+  }
+  function partnerAreaName(id) {
+    var area = partnerAreas().filter(function (item) { return item.id === id; })[0];
+    if (!area) return id;
+    return area.id === 'core' ? 'Mat / Abs' : area.name;
+  }
+  function seedPartnerExercises(parts) {
+    var picked = [];
+    (parts || []).forEach(function (partId) {
+      var ids = partId === 'cardio'
+        ? EXERCISES.filter(function (exercise) { return exercise.role === 'cardio' && machinesForEx(exercise.id).length > 0; }).slice(0, 1).map(function (exercise) { return exercise.id; })
+        : (ACTIVE_PROGRAM.classic[partId] || []).filter(function (id) { return EX[id] && machinesForEx(id).length > 0; }).slice(0, 2);
+      ids.forEach(function (id) { if (picked.indexOf(id) < 0) picked.push(id); });
+    });
+    return picked;
+  }
   function renderPart() {
     var el = document.getElementById('s-today');
+    SESSION.parts = SESSION.parts || [];
     el.innerHTML = '<div class="topbar"><div class="eyebrow">Training with a partner</div><button class="mini" data-action="cancel-session">Cancel</button></div>' +
-      '<h1 class="day">What today?</h1><p class="sub">Pick a body part — I\'ll suggest exercises and you can <b>search & add</b> any machine.</p>' +
-      '<div class="partgrid">' + ACTIVE_PROGRAM.bodyParts.map(function (p) {
-        return '<button class="partbtn" data-action="pick-part" data-part="' + p.id + '"><span class="t">' + esc(p.name) + '</span><span class="d">' + p.muscles.map(function (m) { return MU[m] ? MU[m].name : m; }).slice(0, 3).join(' · ') + '</span></button>';
-      }).join('') + '</div>';
+      '<h1 class="day">What are you combining?</h1><p class="sub">Select every area you and your friend plan to train. You can combine <b>Back + Arms + Cardio</b>, add <b>Mat / Abs</b>, or make any other mix.</p>' +
+      '<div class="partgrid">' + partnerAreas().map(function (p) { var selected = SESSION.parts.indexOf(p.id) >= 0; var detail = p.id === 'cardio' ? 'Treadmill · bike · verified cardio' : (p.id === 'core' ? 'Mats · abs · obliques · lower back' : p.muscles.map(function (m) { return MU[m] ? MU[m].name : m; }).slice(0, 3).join(' · '));
+        return '<button class="partbtn ' + (selected ? 'on' : '') + '" data-action="toggle-part" data-part="' + p.id + '" aria-pressed="' + selected + '"><span class="t">' + esc(partnerAreaName(p.id)) + '</span><span class="d">' + esc(detail) + '</span></button>';
+      }).join('') + '</div><button class="cta" data-action="partner-compose">Choose exercises →</button>';
   }
   function renderCompose() {
     var el = document.getElementById('s-today');
-    var part = ACTIVE_PROGRAM.bodyParts.filter(function (p) { return p.id === SESSION.part; })[0];
+    var selectedParts = SESSION.parts || [];
     var q = (SESSION.query || '').toLowerCase();
-    var pool = L.exercisesForBodyPart(part, EXERCISES);
+    var pool = [];
+    selectedParts.forEach(function (partId) {
+      var area = ACTIVE_PROGRAM.bodyParts.filter(function (item) { return item.id === partId; })[0];
+      var areaExercises = partId === 'cardio' ? EXERCISES.filter(function (exercise) { return exercise.role === 'cardio'; }) : (area ? L.exercisesForBodyPart(area, EXERCISES) : []);
+      areaExercises.forEach(function (exercise) { if (!L.byId(pool)[exercise.id]) pool.push(exercise); });
+    });
     pool = pool.filter(function (e) { return machinesForEx(e.id).length > 0; });
     if (q) pool = pool.filter(function (e) { return e.name.toLowerCase().indexOf(q) >= 0 || (machinesForEx(e.id)[0] && machinesForEx(e.id)[0].name.toLowerCase().indexOf(q) >= 0); });
-    SESSION.picked = (SESSION.picked || ACTIVE_PROGRAM.classic[SESSION.part].slice(0, 5)).filter(function (id) { return machinesForEx(id).length > 0; });
+    SESSION.picked = (SESSION.picked || []).filter(function (id) { return EX[id] && machinesForEx(id).length > 0; });
     if (!SESSION.picked.length) SESSION.picked = pool.slice(0, 5).map(function (exercise) { return exercise.id; });
     var picked = SESSION.picked;
-    el.innerHTML = '<div class="topbar"><div class="eyebrow">' + esc(part.name) + ' · with a partner</div><button class="mini" data-action="partner-back">‹ Parts</button></div>' +
+    var areaLabel = selectedParts.map(partnerAreaName).join(' + ');
+    el.innerHTML = '<div class="topbar"><div class="eyebrow">' + esc(areaLabel) + ' · with a partner</div><button class="mini" data-action="partner-areas-back">‹ Areas</button></div>' +
       '<h1 class="day">Build it</h1><p class="sub">Tap to add or remove. <b>' + picked.length + ' picked.</b></p>' +
       '<label class="fieldlabel" for="exsearch">Search verified exercises</label><input class="search" id="exsearch" placeholder="Machine or exercise" value="' + esc(SESSION.query || '') + '" oninput="window.__search(this.value)">' +
       pool.map(function (e) {
@@ -269,14 +294,14 @@
   window.__search = function (v) { SESSION.query = v; var a = document.activeElement; renderCompose(); var s = document.getElementById('exsearch'); if (s) { s.focus(); s.setSelectionRange(v.length, v.length); } };
   function partnerTime() {
     var el = document.getElementById('s-today');
-    el.innerHTML = '<div class="eyebrow">Almost there</div><h1 class="day">How long?</h1><p class="sub">Optional — I\'ll trim or pad your ' + SESSION.picked.length + ' exercises to fit.</p>' +
+    el.innerHTML = '<div class="eyebrow">Almost there</div><h1 class="day">How long?</h1><p class="sub">Use this as the planning ceiling for your ' + SESSION.picked.length + ' selected exercises. Your friend controls the pace; the app will not invent extra work just to fill time.</p>' +
       '<div class="timegrid">' + [30, 45, 60, 90, 120].map(function (m) { return '<button class="timechip" data-action="partner-go" data-min="' + m + '"><div class="big">' + m + '</div><div class="u">' + (m === 120 ? '2 hours' : 'min') + '</div></button>'; }).join('') +
       '<button class="timechip" data-action="partner-go" data-min="0"><div class="big">—</div><div class="u">no limit</div></button></div>' +
-      '<button class="cta sub" data-action="partner-back">Back</button>';
+      '<button class="cta sub" data-action="partner-compose-back">Back</button>';
   }
   function partnerGo(min) {
-    var part = ACTIVE_PROGRAM.bodyParts.filter(function (p) { return p.id === SESSION.part; })[0];
-    var custom = L.buildCustom(SESSION.picked, EX, min || null, part.name);
+    var sessionName = (SESSION.parts || []).map(partnerAreaName).join(' + ') || 'Partner session';
+    var custom = L.buildCustom(SESSION.picked, EX, min || null, sessionName);
     SESSION.built = prepBuilt(COACH.enhanceWorkout(custom, { EX: EX, equipment: activeEquipment(), profile: trainingProfile, log: log, readiness: null }));
     SESSION.budgetMin = min || null; SESSION.idx = 0; SESSION.phase = 'preview'; renderSession();
   }
@@ -287,7 +312,7 @@
     el.innerHTML = '<div class="topbar"><div class="eyebrow">Workout preview · ' + esc(activeGymName()) + '</div><button class="mini" data-action="cancel-session">Cancel</button></div>' +
       '<h1 class="day">' + esc(b.name) + '</h1><p class="sub"><b>Estimated ' + esc(b.estimatedDuration || b.estMin) + ' min</b> · ' + esc(b.durationEstimate ? b.durationEstimate.confidence : 'Calibration phase') + '</p>' +
       '<div class="panel coach-explain"><span class="eyebrow">Why today</span><p>' + esc(b.reasonSelected) + '</p><small>' + esc(b.readinessContext ? b.readinessContext.explanation : 'Normal planned session.') + '</small>' + (b.readinessContext && b.readinessContext.action === 'trim_accessory' ? '<button class="mini" data-action="restore-readiness-volume">Restore planned volume</button>' : '') + '</div>' +
-      '<div class="workout-preview">' + b.slots.map(function (slot, index) { var load = slot.pre && slot.pre.weight != null ? ' · ' + wLbl(slot.pre.weight) + (slot.ex.loadMode === 'perHand' ? '/hand' : '') : ' · calibration'; var assigned = L.byId(machinesForEx(slot.exId))[slot.machineId]; return '<div class="preview-row"><span class="idx">' + (index + 1) + '</span><div><b>' + esc(slot.ex.name) + '</b><small>' + slot.sets + ' × ' + slot.ex.repRange[0] + '–' + slot.ex.repRange[1] + (slot.ex.measure === 'duration' ? ' sec' : '') + ' · ' + slot.ex.defaultRIR + ' RIR' + load + ' · ' + esc(assigned ? nameOf(assigned) : zoneName(slot.zoneId)) + (assigned && assigned.zoneId ? ' · ' + esc(zoneName(assigned.zoneId)) : '') + '</small></div></div>'; }).join('') + '</div>' +
+      '<div class="workout-preview">' + b.slots.map(function (slot, index) { var load = slot.pre && slot.pre.weight != null ? ' · ' + wLbl(slot.pre.weight) + (slot.ex.loadMode === 'perHand' ? '/hand' : '') : ' · calibration'; var assigned = L.byId(machinesForEx(slot.exId))[slot.machineId]; var prescription = slot.ex.measure === 'minutes' ? slot.ex.repRange[0] + '–' + slot.ex.repRange[1] + ' min · log effort' : slot.sets + ' × ' + slot.ex.repRange[0] + '–' + slot.ex.repRange[1] + (slot.ex.measure === 'duration' ? ' sec' : '') + ' · ' + slot.ex.defaultRIR + ' RIR' + load; return '<div class="preview-row"><span class="idx">' + (index + 1) + '</span><div><b>' + esc(slot.ex.name) + '</b><small>' + prescription + ' · ' + esc(assigned ? nameOf(assigned) : zoneName(slot.zoneId)) + (assigned && assigned.zoneId ? ' · ' + esc(zoneName(assigned.zoneId)) : '') + '</small></div></div>'; }).join('') + '</div>' +
       (route ? '<section class="route-preview"><span class="eyebrow">Workout route · training order preserved</span><div>' + route + '</div></section>' : '') +
       '<button class="cta" data-action="begin-previewed-workout">Start workout →</button>';
   }
@@ -310,7 +335,7 @@
           s.ex = EX[replacement];
         }
       }
-      var pre = s.ex.equipType === 'dumbbell' ? COACH.recommendLoad(s.ex, COACH.historyFor(log, s.exId, 5), trainingProfile.availableDumbbellsLb, { targetSets: s.sets, repRange: s.ex.repRange }) : L.prescribe(s.ex, lifts[s.exId]);
+      var pre = s.ex.role === 'cardio' ? { mode: 'cardio', weight: 0, confidence: 'User-paced', note: 'Choose a sustainable duration and effort.', reason: 'Cardio is logged by minutes and effort, not lifting load.' } : (s.ex.equipType === 'dumbbell' ? COACH.recommendLoad(s.ex, COACH.historyFor(log, s.exId, 5), trainingProfile.availableDumbbellsLb, { targetSets: s.sets, repRange: s.ex.repRange }) : L.prescribe(s.ex, lifts[s.exId]));
       var assigned = chooseMachineForExercise(s.exId, s.zoneId);
       s.machineId = assigned.machine ? assigned.machine.id : null;
       s.machineChoiceReason = assigned.reason;
@@ -384,8 +409,9 @@
 
     var tgt = s.pre.mode === 'calibrate' ? 'find your weight' : wLbl(s.pre.weight) + (ex.loadMode === 'perHand' ? '/hand' : '');
     var repUnit = ex.measure === 'duration' ? ' sec' : '';
-    var lastPerformance = lastHistory ? '<div class="last-performance"><span class="eyebrow">Last performance</span><b>' + esc(wLbl(lastHistory.weight) + (ex.loadMode === 'perHand' ? '/hand' : '')) + '</b><span>' + esc(lastHistory.reps.join(', ')) + (lastHistory.avgRIR != null ? (ex.measure === 'duration' ? ' sec' : ' reps') + ' · ~' + lastHistory.avgRIR.toFixed(1) + ' RIR' : (ex.measure === 'duration' ? ' sec' : ' reps')) + '</span></div>' : '';
-    var target = '<div class="target"><span class="t">' + s.sets + ' × ' + ex.repRange[0] + '–' + ex.repRange[1] + repUnit + ' · ' + tgt + ' · ' + ex.defaultRIR + ' RIR</span><span class="note">' + esc(s.pre.note) + '</span>' + (s.pre.reason ? '<button class="why-button" type="button" data-action="toggle-why">Why?</button><p class="why-copy hidden">' + esc(s.pre.reason) + '</p>' : '') + '</div>' + lastPerformance +
+    var lastPerformance = ex.role !== 'cardio' && lastHistory ? '<div class="last-performance"><span class="eyebrow">Last performance</span><b>' + esc(wLbl(lastHistory.weight) + (ex.loadMode === 'perHand' ? '/hand' : '')) + '</b><span>' + esc(lastHistory.reps.join(', ')) + (lastHistory.avgRIR != null ? (ex.measure === 'duration' ? ' sec' : ' reps') + ' · ~' + lastHistory.avgRIR.toFixed(1) + ' RIR' : (ex.measure === 'duration' ? ' sec' : ' reps')) + '</span></div>' : '';
+    var targetCopy = ex.measure === 'minutes' ? ex.repRange[0] + '–' + ex.repRange[1] + ' minutes · record effort 1–10' : s.sets + ' × ' + ex.repRange[0] + '–' + ex.repRange[1] + repUnit + ' · ' + tgt + ' · ' + ex.defaultRIR + ' RIR';
+    var target = '<div class="target"><span class="t">' + targetCopy + '</span><span class="note">' + esc(s.pre.note) + '</span>' + (s.pre.reason ? '<button class="why-button" type="button" data-action="toggle-why">Why?</button><p class="why-copy hidden">' + esc(s.pre.reason) + '</p>' : '') + '</div>' + lastPerformance +
       (s.pre.mode === 'reduce_suggested' ? '<div class="coach-suggest"><span>Repeated misses, not one bad day. Reduction is optional.</span><button class="mini" data-action="accept-reduction">Use ' + wLbl(s.pre.suggestedWeight) + '</button></div>' : '');
 
     target += gymSwapNote;
@@ -405,8 +431,8 @@
         '<div class="note-field"><label class="fieldlabel" for="technote">Pain-free technique note <span>optional</span></label><input id="technote" class="search compact" data-technique-note value="' + esc(s.techniqueNote || '') + '" placeholder="Settings, comfort, or a cue that helped"></div>' +
         '<div class="sets">' + rows + '</div>' +
         '<div class="cfoot"><span class="cue"><b>Cue:</b> ' + esc(ex.cues[0]) + '</span>' + (SESSION._rest ? '<span class="rest run" id="rest-clock">Rest ' + fmtDur(SESSION._rest.left) + '</span>' : '') +
-        '<button class="mini" data-action="add-warmup">+ Warm-up</button>' +
-        (cfg.advanced ? '<button class="mini ' + (s.superEx ? 'busy' : '') + '" data-action="superset">' + (s.superEx ? 'Superset ✓' : '+ Superset') + '</button>' : '') +
+        (ex.role !== 'cardio' ? '<button class="mini" data-action="add-warmup">+ Warm-up</button>' : '') +
+        (cfg.advanced && ex.role !== 'cardio' ? '<button class="mini ' + (s.superEx ? 'busy' : '') + '" data-action="superset">' + (s.superEx ? 'Superset ✓' : '+ Superset') + '</button>' : '') +
         '<button class="mini busy" data-action="busy">Busy?</button>' +
         '<button class="next-btn" data-action="next-slot">' + (last ? 'Finish ▸' : 'Next ▸') + '</button></div></div>';
     requestAnimationFrame(pauseReducedMotion);
@@ -435,7 +461,7 @@
   }
 
   function setNumber(s, i) { var n = 0; for (var j = 0; j <= i; j++) if (s.log[j].kind !== 'warmup') n++; return n; }
-  function slabFor(x, s, i) { return x.kind === 'warmup' ? 'WARM' : 'SET ' + setNumber(s, i); }
+  function slabFor(x, s, i) { return x.kind === 'warmup' ? 'WARM' : (s.ex && s.ex.measure === 'minutes' ? 'CARDIO' : 'SET ' + setNumber(s, i)); }
   function shortName(ex) { return ex ? ex.name.split(' ')[0] : ''; }
   function loadLabel(ex) {
     return { perSide: 'per side', perHand: 'per hand', stack: 'stack', assistance: 'assistance', total: 'total load', bodyweight: 'added load' }[ex.loadMode] || 'load';
@@ -450,6 +476,9 @@
         return '<div class="side-input"><b>' + label + '</b><input type="number" inputmode="numeric" aria-label="' + label + ' ' + measureLabel + '" placeholder="' + (ex.measure === 'duration' ? 'sec' : 'reps') + '" value="' + (value.reps != null ? value.reps : '') + '" data-set="' + i + '" data-f="' + side + 'reps"><input type="number" inputmode="decimal" aria-label="' + label + ' weight per hand in ' + cfg.units + '" placeholder="load" value="' + sw + '" data-set="' + i + '" data-f="' + side + 'weight"><input class="rir" type="number" min="0" max="5" inputmode="numeric" aria-label="' + label + ' repetitions in reserve" placeholder="RIR" value="' + (value.rir != null ? value.rir : '') + '" data-set="' + i + '" data-f="' + side + 'rir"></div>';
       }
       return '<div class="subin unilateral-input">' + sideRow('L', 'l', left) + sideRow('R', 'r', right) + '<span class="x">' + cfg.units + ' per hand</span></div>';
+    }
+    if (!superEx && ex.measure === 'minutes') {
+      return '<div class="subin"><input type="number" min="1" inputmode="numeric" aria-label="Cardio duration in minutes" placeholder="min" value="' + (x.minutes != null ? x.minutes : '') + '" data-set="' + i + '" data-f="duration"><span class="x">minutes</span><input type="number" min="1" max="10" inputmode="numeric" aria-label="Average cardio effort from 1 to 10" placeholder="effort" value="' + (x.effort != null ? x.effort : '') + '" data-set="' + i + '" data-f="effort"><span class="x">/10</span></div>';
     }
     if (!superEx && ex.measure === 'duration' && x.kind !== 'warmup') {
       return '<div class="subin"><input type="number" inputmode="numeric" aria-label="Duration in seconds" placeholder="sec" value="' + (x.durationSec != null ? x.durationSec : '') + '" data-set="' + i + '" data-f="duration"><input type="number" inputmode="decimal" aria-label="Weight per hand in ' + cfg.units + '" placeholder="load" value="' + wD + '" data-set="' + i + '" data-f="weight"><span class="x">' + cfg.units + ' ' + esc(loadLabel(ex)) + '</span><input type="number" inputmode="decimal" aria-label="Optional distance" placeholder="distance" value="' + (x.distance != null ? x.distance : '') + '" data-set="' + i + '" data-f="distance"><input class="rir" type="number" min="0" max="5" inputmode="numeric" aria-label="Repetitions in reserve" placeholder="RIR" value="' + (x.rir != null ? x.rir : '') + '" data-set="' + i + '" data-f="rir"></div>';
@@ -470,7 +499,7 @@
     if (x.done) {
       var reps = x.clusters && x.clusters.length > 1 ? x.clusters.join('+') : x.reps;
       var sideSummary = x.sides ? ('L ' + x.sides.left.reps + '×' + L.toDisplay(x.sides.left.weight, cfg.units) + ' · R ' + x.sides.right.reps + '×' + L.toDisplay(x.sides.right.weight, cfg.units)) : null;
-      var measured = ex.measure === 'duration' ? ((x.durationSec || reps) + ' <span class="u">sec</span>' + (x.distance != null ? ' · ' + x.distance + ' <span class="u">distance</span>' : '') + ' · ' + L.toDisplay(x.weight, cfg.units)) : (reps + ' <span class="u">reps</span> · ' + L.toDisplay(x.weight, cfg.units));
+      var measured = ex.measure === 'minutes' ? (x.minutes + ' <span class="u">min</span>' + (x.effort != null ? ' · effort ' + x.effort + '/10' : '')) : (ex.measure === 'duration' ? ((x.durationSec || reps) + ' <span class="u">sec</span>' + (x.distance != null ? ' · ' + x.distance + ' <span class="u">distance</span>' : '') + ' · ' + L.toDisplay(x.weight, cfg.units)) : (reps + ' <span class="u">reps</span> · ' + L.toDisplay(x.weight, cfg.units)));
       var main = '<span class="slab">' + no + '</span><span class="setsummary">' + (sideSummary || measured) + ' <span class="u">' + cfg.units + (ex.loadMode === 'perHand' ? '/hand' : '') + '</span>';
       if (s.superEx && x.b && x.b.reps) main += ' <span class="u">+</span> ' + esc(shortName(EX[s.superEx])) + ' ' + x.b.reps + '×' + L.toDisplay(x.b.weight || 0, cfg.units);
       if (x.durSec) main += '<span class="dur">⏱ ' + fmtDur(x.durSec) + '</span>';
@@ -486,9 +515,9 @@
     }
     var firstIdle = s.log.findIndex(function (y) { return !y.done && !y.running; });
     if (i === firstIdle) {
-      return '<div class="setrow"><span class="slab">' + no + '</span><button class="startbtn" data-action="start-set" data-set="' + i + '">Start ' + (x.kind === 'warmup' ? 'ramp-up' + (x.targetReps ? ' · ' + x.targetReps + ' reps' : '') : 'set ' + setNumber(s, i)) + '</button></div>';
+      return '<div class="setrow"><span class="slab">' + no + '</span><button class="startbtn" data-action="start-set" data-set="' + i + '">Start ' + (ex.measure === 'minutes' ? 'cardio' : (x.kind === 'warmup' ? 'ramp-up' + (x.targetReps ? ' · ' + x.targetReps + ' reps' : '') : 'set ' + setNumber(s, i))) + '</button></div>';
     }
-    return '<div class="setrow"><span class="slab">' + no + '</span><span class="setsummary u" style="color:var(--muted2)">target ' + ex.repRange[0] + '–' + ex.repRange[1] + (ex.measure === 'duration' ? ' sec' : '') + ' · ' + wLbl(x.weight) + '</span></div>';
+    return '<div class="setrow"><span class="slab">' + no + '</span><span class="setsummary u" style="color:var(--muted2)">target ' + ex.repRange[0] + '–' + ex.repRange[1] + (ex.measure === 'duration' ? ' sec' : (ex.measure === 'minutes' ? ' min' : ' · ' + wLbl(x.weight))) + '</span></div>';
   }
 
   function howPanel(ex, detailed) {
@@ -542,6 +571,7 @@
     var distanceIn = document.querySelector('#s-today input[data-set="' + i + '"][data-f="distance"]');
     var wIn = document.querySelector('#s-today input[data-set="' + i + '"][data-f="weight"]');
     var rirIn = document.querySelector('#s-today input[data-set="' + i + '"][data-f="rir"]');
+    var effortIn = document.querySelector('#s-today input[data-set="' + i + '"][data-f="effort"]');
     var reps = durationIn && durationIn.value !== '' ? parseInt(durationIn.value, 10) : (rIn && rIn.value !== '' ? parseInt(rIn.value, 10) : null);
     if (s.ex.handedness === 'unilateral' && s.log[i].kind !== 'warmup') {
       function sideValue(prefix) {
@@ -555,11 +585,12 @@
       s.log[i].sides = { left: { reps: left.reps, weight: left.weight, rir: left.rir }, right: { reps: right.reps, weight: right.weight, rir: right.rir } };
       s.log[i].reps = Math.min(left.reps, right.reps); s.log[i].durationSec = s.ex.measure === 'duration' ? s.log[i].reps : null; s.log[i].weight = Math.max(left.weight, right.weight); s.log[i].rir = left.rir != null && right.rir != null ? Math.min(left.rir, right.rir) : undefined; s.log[i].clusters = [s.log[i].reps];
     } else {
-      if (!reps) { toast('How many reps did you get?'); if (rIn) rIn.focus(); s.log[i].running = true; return; }
+      if (!reps) { toast(s.ex.measure === 'minutes' ? 'How many cardio minutes did you complete?' : 'How many reps did you get?'); if (durationIn) durationIn.focus(); else if (rIn) rIn.focus(); s.log[i].running = true; return; }
       s.log[i].reps = reps; s.log[i].clusters = [reps];
-      if (durationIn) s.log[i].durationSec = reps;
+      if (s.ex.measure === 'minutes') { s.log[i].minutes = reps; s.log[i].durationSec = reps * 60; s.log[i].weight = 0; if (effortIn && effortIn.value !== '') s.log[i].effort = Math.max(1, Math.min(10, parseInt(effortIn.value, 10))); }
+      else if (durationIn) s.log[i].durationSec = reps;
       if (distanceIn && distanceIn.value !== '') s.log[i].distance = Number(distanceIn.value);
-      if (wIn && wIn.value !== '') s.log[i].weight = L.fromInput(wIn.value, cfg.units);
+      if (s.ex.measure !== 'minutes' && wIn && wIn.value !== '') s.log[i].weight = L.fromInput(wIn.value, cfg.units);
       if (rirIn && rirIn.value !== '') s.log[i].rir = Math.max(0, Math.min(5, parseInt(rirIn.value, 10)));
     }
     if (s.superEx) {
@@ -694,10 +725,12 @@
     var entry = { day: SESSION.built.dayId, mode: SESSION.mode, gymId: cfg.gymId, goal: trainingProfile.goal, budgetMin: SESSION.budgetMin || null, readiness: SESSION.readiness || null, exercises: [], felt: SESSION.felt || null, note: SESSION.note || '', sessionDurationSec: SESSION.startedAt ? Math.max(1, Math.round((Date.now() - SESSION.startedAt) / 1000)) : null, decisions: (SESSION.built.decisionLog || []).slice() };
     SESSION.built.slots.forEach(function (s) {
       var work = s.log.filter(function (x) { return x.kind !== 'warmup' && x.done && x.reps > 0; });
-      var sets = work.map(function (x) { return { reps: x.reps, durationSec: x.durationSec != null ? x.durationSec : undefined, distance: x.distance != null ? x.distance : undefined, weight: x.weight || 0, weightPerHand: s.ex.loadMode === 'perHand' ? x.weight || 0 : undefined, loadMode: s.ex.loadMode, rir: x.rir != null ? x.rir : undefined, sides: x.sides || undefined, restBeforeSec: x.restBeforeSec != null ? x.restBeforeSec : undefined, durSec: Math.round(x.durSec), endClock: x.endClock, clusters: (x.clusters && x.clusters.length > 1) ? x.clusters : undefined }; });
+      var sets = work.map(function (x) { return { reps: x.reps, minutes: x.minutes != null ? x.minutes : undefined, effort: x.effort != null ? x.effort : undefined, durationSec: x.durationSec != null ? x.durationSec : undefined, distance: x.distance != null ? x.distance : undefined, weight: x.weight || 0, weightPerHand: s.ex.loadMode === 'perHand' ? x.weight || 0 : undefined, loadMode: s.ex.loadMode, rir: x.rir != null ? x.rir : undefined, sides: x.sides || undefined, restBeforeSec: x.restBeforeSec != null ? x.restBeforeSec : undefined, durSec: Math.round(x.durSec), endClock: x.endClock, clusters: (x.clusters && x.clusters.length > 1) ? x.clusters : undefined }; });
       if (sets.length) {
         var sideSets = s.ex.handedness === 'unilateral' ? { left: work.filter(function (x) { return x.sides; }).map(function (x) { return x.sides.left; }), right: work.filter(function (x) { return x.sides; }).map(function (x) { return x.sides.right; }) } : undefined;
-        entry.exercises.push({ exId: s.exId, exerciseVariation: s.ex.name, loadMode: s.ex.loadMode, machineId: s.machineId, machineChoiceReason: s.machineChoiceReason || '', machineSetting: s.machineId ? machineSettings[s.machineId] || '' : '', exerciseSetting: trainingProfile.exerciseSettings[s.exId] || '', techniqueNote: s.techniqueNote || '', loadTests: (s.loadTests || []).slice(), sideSets: sideSets, sets: sets }); lifts[s.exId] = L.updateLift(lifts[s.exId], s.ex, sets);
+        var cardioMinutes = s.ex.role === 'cardio' ? sets.reduce(function (total, set) { return total + Number(set.minutes || 0); }, 0) : undefined;
+        entry.exercises.push({ exId: s.exId, exerciseVariation: s.ex.name, loadMode: s.ex.loadMode, machineId: s.machineId, machineChoiceReason: s.machineChoiceReason || '', machineSetting: s.machineId ? machineSettings[s.machineId] || '' : '', exerciseSetting: trainingProfile.exerciseSettings[s.exId] || '', techniqueNote: s.techniqueNote || '', loadTests: (s.loadTests || []).slice(), cardioMinutes: cardioMinutes, sideSets: sideSets, sets: sets });
+        if (s.ex.role !== 'cardio') lifts[s.exId] = L.updateLift(lifts[s.exId], s.ex, sets);
         var restSamples = sets.filter(function (set) { return set.restBeforeSec != null; }).map(function (set) { return set.restBeforeSec; });
         if (restSamples.length) trainingProfile.typicalRestSec[s.exId] = Math.round(restSamples.reduce(function (sum, value) { return sum + value; }, 0) / restSamples.length);
         trainingProfile.typicalExerciseSec[s.exId] = Math.round(work.reduce(function (sum, set) { return sum + Number(set.durSec || 0); }, 0));
@@ -708,7 +741,8 @@
       }
     });
     log[date] = entry; set('muscles-log', log); set('muscles-lifts', lifts);
-    plan.cycleIndex = L.nextIndex(ACTIVE_PROGRAM, plan.cycleIndex); plan.sessionCount++; plan.calibrated = true; set('muscles-plan', plan);
+    if (SESSION.mode !== 'partner') plan.cycleIndex = L.nextIndex(ACTIVE_PROGRAM, plan.cycleIndex);
+    plan.sessionCount++; plan.calibrated = true; set('muscles-plan', plan);
     var pr = celebrate(entry); SESSION = null; updateHeader(); renderToday(); toast(pr || 'Session saved — nice work 💪');
   }
   function saveCardio() {
@@ -1000,7 +1034,7 @@
     var body = (e.exercises || []).map(function (it) {
       var ex = EX[it.exId];
       return '<div style="margin:8px 0"><div style="font-family:var(--disp);font-weight:600;text-transform:uppercase;font-size:15px">' + esc(ex ? ex.name : it.exId) + '</div>' +
-        it.sets.map(function (s, i) { return '<span class="mono" style="font-size:11.5px;color:var(--muted);margin-right:10px">S' + (i + 1) + ': ' + s.reps + '×' + L.toDisplay(s.weight, cfg.units) + (s.durSec ? ' ·' + fmtDur(s.durSec) : '') + '</span>'; }).join('') + '</div>';
+        it.sets.map(function (s, i) { return '<span class="mono" style="font-size:11.5px;color:var(--muted);margin-right:10px">' + (it.cardioMinutes ? s.minutes + ' min' + (s.effort != null ? ' · effort ' + s.effort + '/10' : '') : 'S' + (i + 1) + ': ' + s.reps + '×' + L.toDisplay(s.weight, cfg.units) + (s.durSec ? ' ·' + fmtDur(s.durSec) : '')) + '</span>'; }).join('') + '</div>';
     }).join('');
     var dayName = ACTIVE_PROGRAM.days[e.day] ? ACTIVE_PROGRAM.days[e.day].name : e.day;
     wrap.innerHTML = '<div class="lab" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:2px">' + head + ' · ' + esc(dayName) + (e.mode ? ' · ' + e.mode : '') + '</div>' +
@@ -1211,8 +1245,10 @@
       case 'pick-focus': buildAndStart(d('data-day')); break;
       case 'begin-previewed-workout': SESSION.phase = 'active'; SESSION.startedAt = Date.now(); renderSession(); break;
       case 'restore-readiness-volume': SESSION.built.slots.forEach(function (slot) { while (slot.sets < slot.originalSets) { slot.sets++; slot.log.push(newSet(slot.pre.weight)); } slot.targetSets = slot.sets; }); SESSION.built.readinessContext.action = 'user_override'; SESSION.built.readinessContext.explanation = 'You restored the planned accessory volume; the original readiness note remains in the decision log.'; renderPreview(); toast('Planned volume restored'); break;
-      case 'pick-part': SESSION.part = d('data-part'); SESSION.picked = ACTIVE_PROGRAM.classic[SESSION.part].slice(0, 5); SESSION.query = ''; SESSION.phase = 'compose'; renderSession(); break;
-      case 'partner-back': SESSION.phase = 'part'; renderSession(); break;
+      case 'toggle-part': { var partId = d('data-part'), partIndex = SESSION.parts.indexOf(partId); if (partIndex >= 0) SESSION.parts.splice(partIndex, 1); else SESSION.parts.push(partId); renderPart(); break; }
+      case 'partner-compose': if (!SESSION.parts.length) { toast('Select at least one training area'); break; } SESSION.picked = seedPartnerExercises(SESSION.parts); SESSION.query = ''; SESSION.phase = 'compose'; renderSession(); break;
+      case 'partner-areas-back': SESSION.phase = 'part'; renderSession(); break;
+      case 'partner-compose-back': SESSION.phase = 'compose'; renderSession(); break;
       case 'toggle-ex': { var id = d('data-ex'); var i = SESSION.picked.indexOf(id); if (i >= 0) SESSION.picked.splice(i, 1); else SESSION.picked.push(id); renderCompose(); break; }
       case 'partner-time': if (!SESSION.picked.length) { toast('Add at least one exercise'); break; } SESSION.phase = 'ptime'; renderSession(); break;
       case 'partner-go': partnerGo(+d('data-min')); break;

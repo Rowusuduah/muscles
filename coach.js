@@ -240,12 +240,17 @@
         }
       }
       var originalRange = (slot.ex.repRange || [8, 12]).slice();
-      var goalRange = slot.ex.role === 'compound' ? selectedGoal.compoundReps : selectedGoal.accessoryReps;
-      var adjustedRange = [Math.max(originalRange[0], goalRange[0]), Math.min(originalRange[1], goalRange[1])];
-      if (adjustedRange[0] > adjustedRange[1]) adjustedRange = originalRange;
-      var adjustedRIR = clamp(Number(slot.ex.defaultRIR == null ? 2 : slot.ex.defaultRIR) + ready.targetRIRAdd, selectedGoal.rir[0], Math.max(selectedGoal.rir[1], Number(slot.ex.defaultRIR || 2) + ready.targetRIRAdd));
-      slot.ex = Object.assign({}, slot.ex, { repRange: adjustedRange, restSec: Math.max(45, Math.round(Number(slot.ex.restSec || 90) * selectedGoal.restMultiplier / 5) * 5), defaultRIR: adjustedRIR });
-      if (adjustedRange[0] !== originalRange[0] || adjustedRange[1] !== originalRange[1]) decisions.push({ type: 'goal_rep_emphasis', exerciseId: slot.exId, reasons: [selectedGoal.name + ' adjusted the emphasis within the exercise\'s safe programming range.'] });
+      var adjustedRange = originalRange;
+      if (slot.ex.role === 'cardio') {
+        slot.ex = Object.assign({}, slot.ex, { repRange: originalRange, restSec: 0, defaultRIR: null });
+      } else {
+        var goalRange = slot.ex.role === 'compound' ? selectedGoal.compoundReps : selectedGoal.accessoryReps;
+        adjustedRange = [Math.max(originalRange[0], goalRange[0]), Math.min(originalRange[1], goalRange[1])];
+        if (adjustedRange[0] > adjustedRange[1]) adjustedRange = originalRange;
+        var adjustedRIR = clamp(Number(slot.ex.defaultRIR == null ? 2 : slot.ex.defaultRIR) + ready.targetRIRAdd, selectedGoal.rir[0], Math.max(selectedGoal.rir[1], Number(slot.ex.defaultRIR || 2) + ready.targetRIRAdd));
+        slot.ex = Object.assign({}, slot.ex, { repRange: adjustedRange, restSec: Math.max(45, Math.round(Number(slot.ex.restSec || 90) * selectedGoal.restMultiplier / 5) * 5), defaultRIR: adjustedRIR });
+        if (adjustedRange[0] !== originalRange[0] || adjustedRange[1] !== originalRange[1]) decisions.push({ type: 'goal_rep_emphasis', exerciseId: slot.exId, reasons: [selectedGoal.name + ' adjusted the emphasis within the exercise\'s safe programming range.'] });
+      }
       slot.priority = index + 1;
       slot.trainingRole = slot.role;
       slot.reasonSelected = slot.originalExId ? 'Selected as the highest-ranked verified substitute while preserving movement and training role.' : 'Preserved from the selected program for progression continuity.';

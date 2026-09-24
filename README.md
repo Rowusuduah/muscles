@@ -24,7 +24,7 @@ The signature Iron & Chalk dark theme is retained, with a system-aware light the
 - Intermediate four-day strength and hypertrophy structure
 - 20/30/45/60/90/120-minute time fitting that stays inside the selected program
 - Solo coaching automatically assigns one verified station using the planned route and the most recent compatible machine record; no equipment picker is shown during a coached workout.
-- Partner/custom sessions retain manual equipment choice because the partner leads the session, with 30/45/60/90/120-minute and no-limit timing options.
+- Partner/custom sessions retain manual equipment choice because the partner leads the session, allow multi-area combinations such as Back + Arms + Cardio + Mat/Abs, and offer 30/45/60/90/120-minute and no-limit timing options. Mixed-session cardio is logged in minutes and effort inside the same workout record.
 - A guided load test evaluates a user-chosen labeled load from completed reps, 0–5 RIR, technique quality and pain. It iterates by the actual configured dumbbell rack or equipment increment, handles assistance in the correct direction, and fills working sets only after a pain-free 1–3-RIR result.
 - Automatic warm-up and ramp-up sets, RIR-aware double progression, conservative reduction suggestions, intelligent busy-machine substitutions, requeueing, custom partner sessions, and optional advanced techniques
 - The current Crunch station can be opened directly in the existing equipment-zone map from the workout screen.
