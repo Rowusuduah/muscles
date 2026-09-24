@@ -156,8 +156,8 @@
     if (len < 12) return '';
     var mx = (A.x + B.x) / 2 - dy * 0.16, my = (A.y + B.y) / 2 + dx * 0.16;
     var ang = Math.atan2(B.y - my, B.x - mx) * 180 / Math.PI;
-    return '<g><path d="M' + A.x.toFixed(1) + ' ' + A.y.toFixed(1) + ' Q' + mx.toFixed(1) + ' ' + my.toFixed(1) + ' ' + B.x.toFixed(1) + ' ' + B.y.toFixed(1) + '" stroke="#31C85E" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-dasharray="1 5"><animate attributeName="stroke-dashoffset" values="12;0" dur="0.9s" repeatCount="indefinite"/></path>' +
-      '<g transform="translate(' + B.x.toFixed(1) + ',' + B.y.toFixed(1) + ') rotate(' + ang.toFixed(1) + ')"><path d="M0 0 L-8 -5 L-8 5 Z" fill="#31C85E"/></g></g>';
+    return '<g><path d="M' + A.x.toFixed(1) + ' ' + A.y.toFixed(1) + ' Q' + mx.toFixed(1) + ' ' + my.toFixed(1) + ' ' + B.x.toFixed(1) + ' ' + B.y.toFixed(1) + '" stroke="var(--ember)" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-dasharray="1 5"><animate attributeName="stroke-dashoffset" values="12;0" dur="0.9s" repeatCount="indefinite"/></path>' +
+      '<g transform="translate(' + B.x.toFixed(1) + ',' + B.y.toFixed(1) + ') rotate(' + ang.toFixed(1) + ')"><path d="M0 0 L-8 -5 L-8 5 Z" fill="var(--ember)"/></g></g>';
   }
 
   // build a "wrong" pose from a good one
@@ -225,7 +225,7 @@
 
   // ghost=true renders a faint static END-position (shows the full range of motion)
   function figure(p, right, ghost, impl) {
-    var still = ghost ? '#333B43' : '#39424A', hot = ghost ? '#333B43' : (right ? '#31C85E' : '#E4585C'), body = ghost ? '#333B43' : '#333C44', d = p.dur;
+    var still = ghost ? '#333B43' : '#39424A', hot = ghost ? '#333B43' : (right ? 'var(--ember)' : '#E4585C'), body = ghost ? '#333B43' : '#333C44', d = p.dur;
     var fr = ghost ? 1 : 0;
     function A(j) { return ghost ? '' : anim(p[j][0], p[j][1], d); }
     function col(j) { return (!ghost && moving(p[j][0], p[j][1])) ? hot : still; }
@@ -330,7 +330,7 @@
     return '<g transform="translate(' + x + ',2)"><g transform="rotate(' + ang + ')">' + animStr + seg(24, 11, col) + '<circle cx="0" cy="24" r="4" fill="' + col + '"/><g transform="translate(0,24)">' + seg(22, 9, col) + '</g></g></g>';
   }
   function frontFigure(f, right, ghost, impl) {
-    var still = ghost ? '#333B43' : '#39424A', hot = ghost ? '#333B43' : (right ? '#31C85E' : '#E4585C'), body = ghost ? '#333B43' : '#333C44', d = f.dur, fr = ghost ? 1 : 0;
+    var still = ghost ? '#333B43' : '#39424A', hot = ghost ? '#333B43' : (right ? 'var(--ember)' : '#E4585C'), body = ghost ? '#333B43' : '#333C44', d = f.dur, fr = ghost ? 1 : 0;
     function A(j) { return ghost ? '' : anim(f[j][0], f[j][1], d); }
     function armCol() { return (!ghost && !f.legMove) ? hot : still; }
     function legCol() { return (!ghost && f.legMove) ? hot : still; }
@@ -354,8 +354,8 @@
       var B = f.legMove ? knee(pr[0], pr[1][1]) : hand(pr[0], pr[1][1]);
       var dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy); if (L < 10) return '';
       var ang = Math.atan2(dy, dx) * 180 / Math.PI;
-      return '<g><line x1="' + A.x.toFixed(1) + '" y1="' + A.y.toFixed(1) + '" x2="' + B.x.toFixed(1) + '" y2="' + B.y.toFixed(1) + '" stroke="#31C85E" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="1 5"><animate attributeName="stroke-dashoffset" values="12;0" dur="0.9s" repeatCount="indefinite"/></line>' +
-        '<g transform="translate(' + B.x.toFixed(1) + ',' + B.y.toFixed(1) + ') rotate(' + ang.toFixed(1) + ')"><path d="M0 0 L-8 -5 L-8 5 Z" fill="#31C85E"/></g></g>';
+      return '<g><line x1="' + A.x.toFixed(1) + '" y1="' + A.y.toFixed(1) + '" x2="' + B.x.toFixed(1) + '" y2="' + B.y.toFixed(1) + '" stroke="var(--ember)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="1 5"><animate attributeName="stroke-dashoffset" values="12;0" dur="0.9s" repeatCount="indefinite"/></line>' +
+        '<g transform="translate(' + B.x.toFixed(1) + ',' + B.y.toFixed(1) + ') rotate(' + ang.toFixed(1) + ')"><path d="M0 0 L-8 -5 L-8 5 Z" fill="var(--ember)"/></g></g>';
     }).join('');
   }
   function frontApparatus(f) {
@@ -369,27 +369,46 @@
     var f = right ? base : frontBad(base);
     var impl = ex.equipType === 'dumbbell' ? 'db' : 'none';
     var badge = right
-      ? '<g transform="translate(11,13)"><circle r="10" fill="#31C85E"/><path d="M-4.5 0l3 3 6-7" stroke="#0E1113" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'
+      ? '<g transform="translate(11,13)"><circle r="10" fill="var(--ember)"/><path d="M-4.5 0l3 3 6-7" stroke="#0E1113" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'
       : '<g transform="translate(11,13)"><circle r="10" fill="#E4585C"/><path d="M-4 -4l8 8M4 -4l-8 8" stroke="#0E1113" stroke-width="2.6" stroke-linecap="round"/></g>';
     var defs = '<defs><filter id="hglow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
-    return '<svg class="howto" viewBox="0 0 140 172" aria-label="how to perform this exercise">' + defs +
-      '<g transform="translate(70,96)">' + frontApparatus(f) + frontFigure(f, right, true, impl) + frontFigure(f, right, false, impl) + (right ? frontArrows(f) : '') + '</g>' + badge + '</svg>';
+    return '<svg class="howto" viewBox="0 0 140 132" aria-label="how to perform this exercise">' + defs +
+      '<g transform="translate(70,75)">' + frontApparatus(f) + frontFigure(f, right, true, impl) + frontFigure(f, right, false, impl) + (right ? frontArrows(f) : '') + '</g>' + badge + '</svg>';
+  }
+
+  // A top-down view is clearer than the generic side rig for a plank drag:
+  // it makes the wide base, square hips and side-to-side bell path visible.
+  function plankDragHowto(variant) {
+    var right = variant !== 'wrong', hot = right ? 'var(--ember)' : '#E4585C', dur = (ANIM.plank_drag.dur * 1.2).toFixed(2);
+    var defs = '<defs><filter id="hglow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
+    var badge = right
+      ? '<g transform="translate(12,13)"><circle r="10" fill="var(--ember)"/><path d="M-4.5 0l3 3 6-7" stroke="#0E1113" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'
+      : '<g transform="translate(12,13)"><circle r="10" fill="#E4585C"/><path d="M-4 -4l8 8M4 -4l-8 8" stroke="#0E1113" stroke-width="2.6" stroke-linecap="round"/></g>';
+    var body = '<circle cx="31" cy="66" r="10" fill="#333C44"/><rect x="41" y="48" width="78" height="36" rx="17" fill="#333C44"/>' +
+      '<line x1="112" y1="57" x2="163" y2="37" stroke="#39424A" stroke-width="12" stroke-linecap="round"/><line x1="112" y1="75" x2="163" y2="95" stroke="#39424A" stroke-width="12" stroke-linecap="round"/>' +
+      '<line x1="53" y1="53" x2="80" y2="30" stroke="#39424A" stroke-width="10" stroke-linecap="round"/><circle cx="80" cy="30" r="5" fill="#39424A"/>';
+    var movingArm = '<line x1="53" y1="79" x2="70" y2="104" stroke="' + hot + '" stroke-width="10" stroke-linecap="round" filter="url(#hglow)"><animate attributeName="x2" values="70;118;118;70" keyTimes="0;0.42;0.6;1" dur="' + dur + 's" repeatCount="indefinite"/></line>' +
+      '<circle cx="70" cy="104" r="5" fill="' + hot + '"><animate attributeName="cx" values="70;118;118;70" keyTimes="0;0.42;0.6;1" dur="' + dur + 's" repeatCount="indefinite"/></circle>';
+    var bell = '<g><animateTransform attributeName="transform" type="translate" values="70,108;118,108;118,108;70,108" keyTimes="0;0.42;0.6;1" dur="' + dur + 's" repeatCount="indefinite"/><rect x="-9" y="-3" width="18" height="6" rx="2" fill="#6A747E"/><rect x="-13" y="-7" width="6" height="14" rx="2" fill="#464F57"/><rect x="7" y="-7" width="6" height="14" rx="2" fill="#464F57"/></g>';
+    var path = right ? '<path d="M70 118 H118" stroke="var(--ember)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="2 5"><animate attributeName="stroke-dashoffset" values="14;0" dur=".9s" repeatCount="indefinite"/></path><path d="M118 118l-8-5v10z" fill="var(--ember)"/>' : '<path d="M112 49 Q132 66 112 83" fill="none" stroke="#E4585C" stroke-width="3"/>';
+    return '<svg class="howto" viewBox="0 0 180 132" aria-label="Top view of a wide high plank while the dumbbell moves from one side to the other">' + defs + badge + '<line x1="15" y1="124" x2="170" y2="124" stroke="#2B333B" stroke-width="2"/>' + body + movingArm + bell + path + '</svg>';
   }
 
   function howtoSVG(ex, variant) {
     var pattern = (typeof ex === 'string') ? ex : ex.pattern;
+    if (pattern === 'plank_drag') return plankDragHowto(variant);
     if (typeof ex === 'object' && ex && FRONT_PATS[pattern]) return frontHowto(ex, variant);
     var move = (typeof ex === 'object' && ex) ? deriveMove(ex) : { ctx: CTX[pattern] || 'stand', impl: 'none', torso: null, legs: null };
     var right = variant !== 'wrong';
     var base = applyMove(ANIM[move.pat || pattern] || ANIM['default'], move);
     var p = right ? base : badPose(base, WRONG[pattern] || 'half');
-    var rootT = 'translate(70,96)', rootA = '';
-    if (p.rootBob) rootA = '<animateTransform attributeName="transform" type="translate" values="70,96;70,88;70,88;70,96" keyTimes="0;0.42;0.6;1" dur="' + (p.dur * 1.2).toFixed(2) + 's" repeatCount="indefinite"/>';
+    var rootT = 'translate(70,75)', rootA = '';
+    if (p.rootBob) rootA = '<animateTransform attributeName="transform" type="translate" values="70,75;70,67;70,67;70,75" keyTimes="0;0.42;0.6;1" dur="' + (p.dur * 1.2).toFixed(2) + 's" repeatCount="indefinite"/>';
     var badge = right
-      ? '<g transform="translate(11,13)"><circle r="10" fill="#31C85E"/><path d="M-4.5 0l3 3 6-7" stroke="#0E1113" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'
+      ? '<g transform="translate(11,13)"><circle r="10" fill="var(--ember)"/><path d="M-4.5 0l3 3 6-7" stroke="#0E1113" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'
       : '<g transform="translate(11,13)"><circle r="10" fill="#E4585C"/><path d="M-4 -4l8 8M4 -4l-8 8" stroke="#0E1113" stroke-width="2.6" stroke-linecap="round"/></g>';
     var defs = '<defs><filter id="hglow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
-    return '<svg class="howto" viewBox="0 0 140 172" aria-label="how to perform this exercise">' + defs +
+    return '<svg class="howto" viewBox="0 0 140 132" aria-label="how to perform this exercise">' + defs +
       '<g transform="' + rootT + '">' + rootA + apparatus(move.ctx) +
       figure(p, right, true, move.impl) + figure(p, right, false, move.impl) + (right ? arrow(p) : '') + '</g>' + badge + '</svg>';
   }

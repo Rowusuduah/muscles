@@ -42,7 +42,7 @@
     persist();
   }
   if (!cfg.start) { cfg.start = todayISO(); persist(); }
-  var SESSION = null, workInt = null, restInt = null;
+  var SESSION = null, workInt = null, restInt = null, forceGymPicker = false;
 
   /* ---------- helpers ---------- */
   var FRONT_M = ['traps', 'front_delts', 'side_delts', 'chest', 'biceps', 'forearms', 'abs', 'obliques', 'quads', 'calves'];
@@ -55,6 +55,8 @@
   function activeEquipment() { return cfg && cfg.gymId === 'crunch' && window.CRUNCH_EQUIPMENT ? window.CRUNCH_EQUIPMENT : HOME_EQUIPMENT; }
   function activeGuides() { return cfg && cfg.gymId === 'crunch' && window.CRUNCH_GUIDES ? window.CRUNCH_GUIDES : HOME_GUIDES; }
   function activeGymName() { return cfg && cfg.gymId === 'crunch' ? 'Crunch Fitness' : 'Original gym'; }
+  function gymConfirmedToday() { return cfg && cfg.gymConfirmedOn === todayISO(); }
+  function applyGymTheme() { document.documentElement.setAttribute('data-gym', cfg && cfg.gymId === 'crunch' ? 'crunch' : 'home'); }
   function zoneName(zoneId) { var zone = window.CRUNCH_MAP && window.CRUNCH_MAP.zones.filter(function (z) { return z.id === zoneId; })[0]; return zone ? zone.name : String(zoneId || 'Unmapped').replace(/-/g, ' '); }
   function machinesForEx(exId) { return activeEquipment().filter(function (e) { return (e.exerciseIds || []).indexOf(exId) >= 0; }); }
   function nameOf(eq) { return eq ? (eqNames[eq.id] || eq.name) : ''; }
@@ -69,6 +71,7 @@
     var mode = cfg.theme || 'system';
     var resolved = mode === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : mode;
     document.documentElement.setAttribute('data-theme', resolved);
+    applyGymTheme();
     document.querySelector('meta[name="theme-color"]').setAttribute('content', resolved === 'light' ? '#F2F0EA' : '#121417');
     var toggle = document.getElementById('theme-toggle'), next = resolved === 'dark' ? 'light' : 'dark';
     if (toggle) {
@@ -83,6 +86,23 @@
     return '<div class="schedule-picker"><fieldset class="choicegroup schedule-choice"><legend>Training days per week</legend>' + [2, 3, 4, 5, 6, 7].map(function (days) {
       return '<button type="button" data-action="set-frequency" data-days="' + days + '" class="' + (cfg.weeklyFrequency === days ? 'on' : '') + '" aria-pressed="' + (cfg.weeklyFrequency === days) + '">' + days + '<span>day' + (days === 1 ? '' : 's') + '</span></button>';
     }).join('') + '</fieldset><small>Change this anytime. If the current program does not fit your schedule, muscles selects the matching handbook program and keeps all history.</small></div>';
+  }
+
+  function gymChoiceCards(action) {
+    return '<div class="gym-choice-grid" role="group" aria-label="Choose today\'s gym">' +
+      '<button type="button" class="gym-choice home-choice ' + (cfg.gymId !== 'crunch' ? 'on' : '') + '" data-action="' + action + '" data-gym="home" aria-pressed="' + (cfg.gymId !== 'crunch') + '"><span class="gym-mark">OG</span><span><b>Original gym</b><small>Use only the original verified equipment, guides, photos and substitutions.</small></span></button>' +
+      '<button type="button" class="gym-choice crunch-choice ' + (cfg.gymId === 'crunch' ? 'on' : '') + '" data-action="' + action + '" data-gym="crunch" aria-pressed="' + (cfg.gymId === 'crunch') + '"><span class="gym-mark">C</span><span><b>Crunch Fitness</b><small>Orange mode · Crunch equipment, free weights, photos, zones and substitutions only.</small></span></button>' +
+      '</div>';
+  }
+  function gymContextBar() {
+    return '<div class="panel gym-context"><div><span class="eyebrow">Active gym today</span><b>' + esc(activeGymName()) + '</b><small>Everything shown below is available at this gym.</small></div><button class="mini" data-action="gym-jump">Change gym</button></div>';
+  }
+  function renderGymPicker() {
+    var el = document.getElementById('s-today');
+    el.innerHTML = '<div class="gym-gate fade"><div class="eyebrow">Set today\'s training location</div><h1 class="day">Which gym are you at today?</h1>' +
+      '<p class="sub">Choose once for today. The coach will activate only that gym\'s workouts, equipment photos, exercise choices, substitutions and location guidance. Your workout history stays together when you switch.</p>' +
+      gymChoiceCards('select-daily-gym') +
+      '<div class="gym-gate-note"><b>Why this comes first</b><span>It prevents the coach from showing a machine or route that is not in the building you are using.</span></div></div>';
   }
 
   /* ---------- header ---------- */
@@ -101,7 +121,8 @@
     var el = document.getElementById('s-today');
     el.innerHTML = '<div class="onboard fade">' +
       '<div class="eyebrow">Welcome</div><h1>Let\'s build muscle.</h1>' +
-      '<p class="sub">Your private coach and verified guide for the 51 photographs from this gym. Your workout data never leaves this device.</p>' +
+      '<p class="sub">Your private multi-gym coach, exercise encyclopedia and verified equipment guide. Your workout data never leaves this device.</p>' +
+      '<fieldset class="onboard-gym"><legend>First: which gym are you at today?</legend>' + gymChoiceCards('ob-gym') + '<small>Crunch switches the app to its orange identity. Only the selected gym\'s equipment and exercise mappings are activated.</small></fieldset>' +
       '<label class="fieldlabel" for="obname">Name <span>optional</span></label><input class="search" id="obname" autocomplete="name" placeholder="What should the coach call you?">' +
       '<fieldset class="choicegroup"><legend>Training experience</legend><button type="button" data-action="ob-experience" data-v="beginner" class="on">Beginner</button><button type="button" data-action="ob-experience" data-v="intermediate">Intermediate</button></fieldset>' +
       '<fieldset class="choicegroup goal-choice"><legend>Primary goal</legend><button type="button" data-action="ob-goal" data-v="hypertrophy" class="on">Muscle gain</button><button type="button" data-action="ob-goal" data-v="strength_muscle">Strength + muscle</button><button type="button" data-action="ob-goal" data-v="general_fitness">General fitness</button></fieldset>' +
@@ -123,6 +144,7 @@
   function renderToday() {
     if (!cfg.onboarded) return renderOnboarding();
     if (SESSION) return renderSession();
+    if (!gymConfirmedToday() || forceGymPicker) return renderGymPicker();
     var prop = proposedAlone();
     var day = ACTIVE_PROGRAM.days[prop.dayId];
     var isCardio = false;
@@ -139,7 +161,7 @@
         Object.keys(mark).filter(function (m) { return mark[m] === 'primary'; }).slice(0, 5).map(function (m) { return '<span class="chip">' + esc(MU[m] ? MU[m].name : m) + '</span>'; }).join('') +
         '</div></div></div>';
 
-    var gymBanner = '<div class="panel gym-banner"><div><span class="eyebrow">Training location</span><b>' + esc(activeGymName()) + '</b></div><button class="mini" data-action="gym-jump">Change</button></div>';
+    var gymBanner = '<div class="panel gym-banner"><div><span class="eyebrow">Active gym today</span><b>' + esc(activeGymName()) + '</b><small>Workout, substitutions and equipment guidance are scoped to this gym.</small></div><button class="mini" data-action="gym-jump">Change gym</button></div>';
     el.innerHTML = hero + gymBanner +
       '<button class="modebtn primary" data-action="start-alone"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M6 21c0-4 2.6-7 6-7s6 3 6 7"/></svg></span>' +
       '<span><span class="t">Start coached workout</span><span class="d">' + esc(ACTIVE_PROGRAM.name) + ' · ' + esc(day.name) + '</span></span></button>' +
@@ -216,9 +238,10 @@
     var part = ACTIVE_PROGRAM.bodyParts.filter(function (p) { return p.id === SESSION.part; })[0];
     var q = (SESSION.query || '').toLowerCase();
     var pool = L.exercisesForBodyPart(part, EXERCISES);
-    if (cfg.gymId === 'crunch') pool = pool.filter(function (e) { return machinesForEx(e.id).length > 0; });
+    pool = pool.filter(function (e) { return machinesForEx(e.id).length > 0; });
     if (q) pool = pool.filter(function (e) { return e.name.toLowerCase().indexOf(q) >= 0 || (machinesForEx(e.id)[0] && machinesForEx(e.id)[0].name.toLowerCase().indexOf(q) >= 0); });
-    SESSION.picked = SESSION.picked || ACTIVE_PROGRAM.classic[SESSION.part].slice(0, 5);
+    SESSION.picked = (SESSION.picked || ACTIVE_PROGRAM.classic[SESSION.part].slice(0, 5)).filter(function (id) { return machinesForEx(id).length > 0; });
+    if (!SESSION.picked.length) SESSION.picked = pool.slice(0, 5).map(function (exercise) { return exercise.id; });
     var picked = SESSION.picked;
     el.innerHTML = '<div class="topbar"><div class="eyebrow">' + esc(part.name) + ' · with a partner</div><button class="mini" data-action="partner-back">‹ Parts</button></div>' +
       '<h1 class="day">Build it</h1><p class="sub">Tap to add or remove. <b>' + picked.length + ' picked.</b></p>' +
@@ -263,10 +286,10 @@
   /* prepare a built session's per-slot working state */
   function prepBuilt(built) {
     built.slots.forEach(function (s, index) {
-      // Crunch sessions are constrained to equipment actually verified in the photo audit.
-      // If the programmed exercise is unavailable, preserve the role/sets and use the first
-      // verified alternative already defined by the program rather than inventing equipment.
-      if (cfg.gymId === 'crunch' && !machinesForEx(s.exId).length) {
+      // Every session is constrained to equipment mapped at today's selected gym.
+      // If a programmed exercise is unavailable, preserve the role/sets and use the first
+      // verified program alternative rather than inventing equipment.
+      if (!machinesForEx(s.exId).length) {
         var replacement = (s.alt || []).filter(function (id) { return EX[id] && machinesForEx(id).length; })[0];
         if (replacement) {
           s.gymSwapFrom = s.exId;
@@ -417,22 +440,33 @@
     return '<div class="setrow"><span class="slab">' + no + '</span><span class="setsummary u" style="color:var(--muted2)">target ' + ex.repRange[0] + '–' + ex.repRange[1] + (ex.measure === 'duration' ? ' sec' : '') + ' · ' + wLbl(x.weight) + '</span></div>';
   }
 
-  function howPanel(ex) {
+  function howPanel(ex, detailed) {
     var steps = ex.movement && ex.movement.length ? ex.movement : HOWTO.steps(ex);
     var demoKind = (typeof DEMOS !== 'undefined') && DEMOS[ex.id];
-    var controls = '<div class="democontrols" aria-label="Demonstration controls"><button data-action="demo-frame" data-frame="start">Start</button><button data-action="demo-toggle" aria-pressed="false">Pause</button><button data-action="demo-frame" data-frame="end">End</button></div>';
+    var controls = '<div class="motion-status" aria-live="polite"><span>View</span><strong>Playing full repetition</strong></div><div class="democontrols" aria-label="Demonstration controls"><button data-action="demo-frame" data-frame="start" aria-label="Show the start position">Start</button><button data-action="demo-toggle" aria-pressed="false" aria-label="Pause or play the demonstration">Pause</button><button data-action="demo-frame" data-frame="end" aria-label="Show the end position">End</button></div>';
+    var stageLabel = '<span class="motion-stage-label"><b>Start → finish → controlled return</b><small>Highlighted joints show the movement path</small></span>';
     var media = demoKind === 'svg'
-      ? '<div class="demoblock"><div class="motion-demo" data-duration="' + HOWTO.duration(ex).toFixed(2) + '" role="img" aria-label="Animated start-to-end movement demonstration for ' + esc(ex.name) + '">' + HOWTO.howtoSVG(ex, 'right') + '<span class="tag">exercise demonstration</span></div>' + controls + '</div>'
-      : (demoKind ? '<div class="demoblock"><div class="demo" aria-label="Two-frame demonstration of ' + esc(ex.name) + '"><img class="f1" src="assets/demos/' + ex.id + '_1.webp" alt="' + esc(ex.name) + ' finish position"><img class="f0" src="assets/demos/' + ex.id + '_0.webp" alt="' + esc(ex.name) + ' start position"><span class="tag">exercise demonstration</span></div>' + controls + '</div>'
+      ? '<div class="demoblock"><div class="motion-demo" data-duration="' + HOWTO.duration(ex).toFixed(2) + '" role="img" aria-label="Animated start-to-end movement demonstration for ' + esc(ex.name) + '">' + stageLabel + HOWTO.howtoSVG(ex, 'right') + '<span class="tag">exercise demonstration</span></div>' + controls + '</div>'
+      : (demoKind ? '<div class="demoblock"><div class="demo" aria-label="Two-frame demonstration of ' + esc(ex.name) + '">' + stageLabel + '<img class="f1" src="assets/demos/' + ex.id + '_1.webp" alt="' + esc(ex.name) + ' finish position"><img class="f0" src="assets/demos/' + ex.id + '_0.webp" alt="' + esc(ex.name) + ' start position"><span class="tag">exercise demonstration</span></div>' + controls + '</div>'
         : '<div class="howfig" role="img" aria-label="Code-drawn movement path for ' + esc(ex.name) + '"><div class="howv">' + HOWTO.howtoSVG(ex, 'right') + '</div></div>');
-    return '<div class="howwrap">' + media +
-      '<div style="flex:1">' + (ex.startPosition ? '<p class="motion-phase"><b>Start</b>' + esc(ex.startPosition) + '</p>' : '') + '<ol class="steps">' + steps.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ol>' +
-      (ex.endPosition ? '<p class="motion-phase"><b>End</b>' + esc(ex.endPosition) + '</p>' : '') + '<div class="howmiss"><b>Don\'t:</b> ' + esc(HOWTO.wrongLabel(ex)) + '.</div></div></div>';
+    var compactCoach = '<div class="motion-copy">' + (ex.startPosition ? '<p class="motion-phase"><b>Start position</b>' + esc(ex.startPosition) + '</p>' : '') + '<ol class="steps">' + steps.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ol>' +
+      (ex.endPosition ? '<p class="motion-phase"><b>Finish / reset</b>' + esc(ex.endPosition) + '</p>' : '') + '<div class="howmiss"><b>Don\'t:</b> ' + esc(HOWTO.wrongLabel(ex)) + '.</div></div>';
+    if (!detailed) return '<div class="howwrap">' + media + compactCoach + '</div>';
+    var setup = (ex.setup || []).map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('');
+    var firstMistake = (ex.mistakes || [])[0];
+    var correction = firstMistake ? '<div class="motion-correction"><span>Watch for</span><b>' + esc(firstMistake.mistake) + '</b><p>' + esc(firstMistake.correction) + '</p></div>' : '<div class="howmiss"><b>Don\'t:</b> ' + esc(HOWTO.wrongLabel(ex)) + '.</div>';
+    var coaching = '<div class="motion-coaching"><section><span class="phase-number">1</span><div><b>Set up before the first rep</b><ul>' + setup + '</ul></div></section>' +
+      '<section><span class="phase-number">2</span><div><b>Own the start position</b><p>' + esc(ex.startPosition || 'Brace in a stable, repeatable starting position.') + '</p></div></section>' +
+      '<section><span class="phase-number">3</span><div><b>Perform one clean rep</b><ol class="steps">' + steps.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ol></div></section>' +
+      '<section><span class="phase-number">4</span><div><b>Finish and reset</b><p>' + esc(ex.endPosition || 'Return under control and rebuild your brace before the next repetition.') + '</p></div></section></div>' +
+      '<div class="motion-details"><p><b>Range</b>' + esc(ex.rangeOfMotion || 'Use the largest pain-free range you can control.') + '</p><p><b>Breathing</b>' + esc(ex.breathing || 'Exhale through the effort and inhale during the controlled return.') + '</p><p><b>Tempo</b>' + esc(ex.tempo || 'Move deliberately without bouncing or rushing.') + '</p></div>' +
+      '<div class="motion-cues">' + (ex.cues || []).slice(0, 4).map(function (cue) { return '<span>' + esc(cue) + '</span>'; }).join('') + '</div>' + correction;
+    return '<div class="howwrap detailed-how">' + media + '<div class="motion-instructions">' + coaching + '</div></div>';
   }
   function pauseReducedMotion() {
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     document.querySelectorAll('.motion-demo svg').forEach(function (svg) { if (svg.pauseAnimations) { svg.pauseAnimations(); svg.setCurrentTime(0); } });
-    document.querySelectorAll('.motion-demo').forEach(function (demo) { demo.classList.add('paused'); var btn = demo.parentElement && demo.parentElement.querySelector('[data-action=demo-toggle]'); if (btn) { btn.textContent = 'Play'; btn.setAttribute('aria-pressed', 'true'); } });
+    document.querySelectorAll('.motion-demo').forEach(function (demo) { demo.classList.add('paused'); var block = demo.parentElement, btn = block && block.querySelector('[data-action=demo-toggle]'), status = block && block.querySelector('.motion-status strong'); if (btn) { btn.textContent = 'Play'; btn.setAttribute('aria-pressed', 'true'); } if (status) status.textContent = 'Start position · reduced motion'; });
   }
   window.__howtog = function (btn, i) {
     var w = btn.closest('.howwrap'); if (!w) return;
@@ -676,12 +710,11 @@
   function crunchMapHtml() {
     if (cfg.gymId !== 'crunch' || !window.CRUNCH_MAP) return '';
     var map = window.CRUNCH_MAP;
-    return '<section class="panel gym-map"><div class="eyebrow">Equipment map · schematic / not to scale</div>' +
-      '<p class="lede" style="margin-bottom:12px">' + esc(map.method) + '</p>' +
+    return '<details class="panel gym-map"><summary><span><b>Crunch equipment-zone map</b><small>Schematic / not to scale · open map</small></span><i aria-hidden="true">⌄</i></summary><div class="map-content"><p class="lede" style="margin-bottom:12px">' + esc(map.method) + '</p>' +
       '<div class="map-route"><button type="button" class="map-zone map-all ' + (equipmentZoneFilter === 'All' ? 'on' : '') + '" data-action="equipment-zone" data-zone="All"><span class="map-order">◎</span><div><b>All Crunch zones</b><small>Show the complete verified inventory</small></div></button>' + map.zones.map(function (z, i) {
         return '<button type="button" class="map-zone ' + (equipmentZoneFilter === z.id ? 'on' : '') + '" data-action="equipment-zone" data-zone="' + esc(z.id) + '"><span class="map-order">' + (i + 1) + '</span><div><b>' + esc(z.name) + '</b><small>Photos ' + esc(z.ranges.join(', ')) + '</small><p>' + esc(z.note) + '</p></div></button>';
       }).join('') + '</div>' +
-      '<p class="source-line">EXIF audit: ' + map.exif.photoCount + ' unique photos · median GPS horizontal error ' + map.exif.gpsMedianErrorM + ' m · range ' + map.exif.gpsMinErrorM + '–' + map.exif.gpsMaxErrorM + ' m. GPS is therefore used only to anchor the venue, not individual machines.</p></section>';
+      '<p class="source-line">EXIF audit: ' + map.exif.photoCount + ' unique photos · median GPS horizontal error ' + map.exif.gpsMedianErrorM + ' m · range ' + map.exif.gpsMinErrorM + '–' + map.exif.gpsMaxErrorM + ' m. GPS is therefore used only to anchor the venue, not individual machines.</p></div></details>';
   }
   function renderEquipment() {
     if (equipmentView === 'exercises') return renderExerciseLibrary();
@@ -701,7 +734,7 @@
     });
     var totalPhotos = cfg.gymId === 'crunch' && window.CRUNCH_GYM ? window.CRUNCH_GYM.photoCount : 51;
     el.innerHTML = '<div class="eyebrow">' + guides.length + ' verified/model-level guides · ' + totalPhotos + ' source photos</div><h1 class="day">Equipment</h1>' + libraryToggle() +
-      '<div class="gym-switch" role="group" aria-label="Gym location"><button class="bp ' + (cfg.gymId !== 'crunch' ? 'on' : '') + '" data-action="select-gym" data-gym="home">Original gym</button><button class="bp ' + (cfg.gymId === 'crunch' ? 'on' : '') + '" data-action="select-gym" data-gym="crunch">Crunch Fitness</button></div>' +
+      gymContextBar() +
       '<p class="lede">' + (cfg.gymId === 'crunch' ? 'Crunch guides are built from the September 22 photo audit. Repeated sightings of the same model are grouped, and uncertain machines are not auto-prescribed.' : 'Every original-gym photo is mapped. Alternate angles stay together, and shared-room views are explicitly cross-referenced.') + '</p>' +
       crunchMapHtml() +
       '<label class="fieldlabel" for="eqsearch">Search by machine or filename</label><input class="search" id="eqsearch" value="' + esc(equipmentQuery) + '" placeholder="Try pulldown, chest press, or IMG_2147" oninput="window.__eqSearch(this.value)">' +
@@ -731,12 +764,12 @@
       var familyMatch = exerciseMuscle === 'All' || ex.family === exerciseMuscle || (exerciseMuscle === 'Arms' && (ex.primary || []).some(function (m) { return m === 'biceps' || m === 'triceps' || m === 'forearms'; }));
       var muscleTerms = (ex.primary || []).concat(ex.secondary || []).map(function (m) { return MU[m] ? MU[m].name : m; });
       var haystack = [ex.name, ex.family, ex.pattern, ex.equipType, type, ex.purpose, ex.why].concat(muscleTerms, ex.usefulFor || []).join(' ').toLowerCase();
-      return typeMatch && familyMatch && (!q || haystack.indexOf(q) >= 0) && (available[ex.id] || cfg.gymId !== 'crunch');
+      return typeMatch && familyMatch && (!q || haystack.indexOf(q) >= 0) && available[ex.id];
     }).sort(function (a, b) { return String(a.family || '').localeCompare(String(b.family || '')) || a.name.localeCompare(b.name); });
     var dumbbellCount = Object.keys(EX).filter(function (id) { return EX[id].equipType === 'dumbbell'; }).length;
     el.innerHTML = '<div class="eyebrow">' + dumbbellCount + ' coached dumbbell movements · ' + Object.keys(EX).length + ' total exercises</div><h1 class="day">Exercises</h1>' + libraryToggle() +
-      '<div class="gym-switch" role="group" aria-label="Gym location"><button class="bp ' + (cfg.gymId !== 'crunch' ? 'on' : '') + '" data-action="select-gym" data-gym="home">Original gym</button><button class="bp ' + (cfg.gymId === 'crunch' ? 'on' : '') + '" data-action="select-gym" data-gym="crunch">Crunch Fitness</button></div>' +
-      '<p class="lede">Browse by movement, muscle or equipment. At Crunch, results show exercises mapped to verified equipment in the selected gym.</p>' +
+      gymContextBar() +
+      '<p class="lede">Browse by movement, muscle or equipment. Results show only exercises mapped to verified equipment at ' + esc(activeGymName()) + '.</p>' +
       '<label class="fieldlabel" for="eqsearch">Search exercise, muscle, movement or equipment</label><input class="search" id="eqsearch" value="' + esc(equipmentQuery) + '" placeholder="Try rear delt, hamstrings, curl, press, or dumbbell" oninput="window.__eqSearch(this.value)">' +
       '<div class="bodyparts" aria-label="Exercise equipment filters">' + types.map(function (type) { return '<button class="bp ' + (exerciseFilter === type ? 'on' : '') + '" data-action="exercise-filter" data-cat="' + type + '">' + type + '</button>'; }).join('') + '</div>' +
       (exerciseFilter === 'Dumbbell' ? '<div class="bodyparts muscle-filters" aria-label="Dumbbell muscle filters">' + muscles.map(function (family) { return '<button class="bp ' + (exerciseMuscle === family ? 'on' : '') + '" data-action="exercise-muscle" data-muscle="' + family + '">' + family + '</button>'; }).join('') + '</div>' : '') +
@@ -757,6 +790,13 @@
   function openExercise(id) {
     var ex = EX[id], el = document.getElementById('s-equipment');
     if (!ex) return;
+    if (!machinesForEx(id).length) {
+      equipmentView = 'exercises';
+      history.replaceState(null, '', '#/equipment');
+      renderExerciseLibrary();
+      toast(ex.name + ' is not mapped at ' + activeGymName());
+      return;
+    }
     equipmentView = 'exercises';
     var exerciseHistory = COACH.historyFor(log, ex.id);
     var recommendation = ex.equipType === 'dumbbell' ? COACH.recommendLoad(ex, exerciseHistory, trainingProfile.availableDumbbellsLb, { targetSets: ex.sets, repRange: ex.repRange }) : null;
@@ -764,16 +804,16 @@
     var equipment = machinesForEx(ex.id), primary = (ex.primary || []).map(function (m) { return MU[m] ? MU[m].name : m; }), secondary = (ex.secondary || []).map(function (m) { return MU[m] ? MU[m].name : m; });
     var mark = markFromMuscles(ex.primary, ex.secondary), preference = trainingProfile.preferences.preferred[ex.id] ? 'preferred' : (trainingProfile.preferences.avoided[ex.id] ? 'avoided' : 'neutral');
     var errors = (ex.mistakes || []).map(function (item) { return '<div class="correction"><b>' + esc(item.mistake) + '</b><span>' + esc(item.correction) + '</span></div>'; }).join('');
-    var substitutes = (ex.equipmentSubstitutes || []).map(function (item) { var sx = EX[item.id]; return '<div class="correction"><b>' + esc(sx ? sx.name : item.id.replace(/_/g, ' ')) + '</b><span>' + esc(item.note) + '</span></div>'; }).join('');
+    var substitutes = (ex.equipmentSubstitutes || []).filter(function (item) { return machinesForEx(item.id).length > 0; }).map(function (item) { var sx = EX[item.id]; return '<div class="correction"><b>' + esc(sx ? sx.name : item.id.replace(/_/g, ' ')) + '</b><span>' + esc(item.note) + '</span></div>'; }).join('');
     var locationPhotos = equipment.map(function (item) { return '<div class="location-equipment">' + shot(item) + '<div><b>' + esc(nameOf(item)) + '</b><small>' + (item.zoneId ? esc(zoneName(item.zoneId)) : esc(activeGymName())) + '</small></div></div>'; }).join('');
-    var exerciseAlternatives = (ex.alternatives || []).map(function (aid) { return EX[aid] ? '<button class="chip cool tap" data-action="open-ex" data-ex="' + aid + '">' + esc(EX[aid].name) + '</button>' : ''; }).join('');
+    var exerciseAlternatives = (ex.alternatives || []).filter(function (aid) { return EX[aid] && machinesForEx(aid).length > 0; }).map(function (aid) { return '<button class="chip cool tap" data-action="open-ex" data-ex="' + aid + '">' + esc(EX[aid].name) + '</button>'; }).join('');
     var recordRows = Object.keys(records).filter(function (key) { return records[key] > 0; }).map(function (key) { var label = key.replace(/([A-Z])/g, ' $1').replace(/^./, function (c) { return c.toUpperCase(); }); var val = key === 'bestVolume' ? Math.round(records[key]) + ' lb-reps' : (key.toLowerCase().indexOf('weight') >= 0 || key === 'bestEstimatedStrength' || key === 'heaviestCarry' ? wLbl(Math.round(records[key] * 10) / 10) : Math.round(records[key] * 10) / 10); return '<div class="record"><span>' + esc(label) + '</span><b>' + esc(val) + '</b></div>'; }).join('');
     var progression = ex.progression || {};
     el.innerHTML = '<button class="mini" data-action="exercise-back">‹ Exercise library</button><article class="exercise-detail">' +
       '<header class="exercise-hero"><span class="guide-label">' + esc(ex.family) + ' · ' + esc(exerciseEquipmentGroup(ex)) + ' · ' + esc(ex.role) + '</span><h1>' + esc(ex.name) + '</h1><p>' + esc(ex.purpose) + '</p><div class="guide-meta"><span>' + esc(ex.pattern.replace(/_/g, ' ')) + '</span><span>' + esc(ex.handedness || 'bilateral') + '</span><span>' + esc(ex.difficulty || 'all levels') + '</span>' + (ex.loadMode === 'perHand' ? '<span>load · per hand</span>' : '') + '</div></header>' +
       '<section class="panel muscle-visual"><div class="muscle-figures"><div>' + FIGURE.figureSVG('front', { mark: mark }) + '<small>Front</small></div><div>' + FIGURE.figureSVG('back', { mark: mark }) + '<small>Back</small></div></div><div><span class="eyebrow">Primary</span><p><b>' + esc(primary.join(' · ')) + '</b></p><span class="eyebrow">Secondary / stabilizing</span><p>' + esc(secondary.join(' · ') || 'No additional region listed') + '</p><small class="legend"><i></i> Primary <i></i> Secondary</small></div></section>' +
       '<section class="guide-section"><h2>What does this achieve?</h2><p>' + esc(ex.purpose) + '</p><h3>Why choose it</h3><p>' + esc(ex.why) + '</p><div class="guide-cues">' + (ex.usefulFor || []).map(function (item) { return '<span>' + esc(item) + '</span>'; }).join('') + '</div></section>' +
-      '<section class="guide-section exercise-motion"><h2>How to perform it</h2>' + howPanel(ex) + '</section>' +
+      '<section class="guide-section exercise-motion"><h2>How to perform it</h2><p class="motion-intro">Watch the full repetition, then use Start and End to inspect each position before you lift.</p>' + howPanel(ex, true) + '</section>' +
       '<section class="guide-section"><h2>Setup & movement</h2><div class="detail-columns"><div><span class="eyebrow">Setup</span><ol class="checklist">' + listText(ex.setup) + '</ol></div><div><span class="eyebrow">Range of motion</span><p>' + esc(ex.rangeOfMotion) + '</p><span class="eyebrow">Breathing</span><p>' + esc(ex.breathing) + '</p><span class="eyebrow">Tempo</span><p>' + esc(ex.tempo) + '</p></div></div><div class="guide-cues">' + (ex.cues || []).map(function (cue) { return '<span>' + esc(cue) + '</span>'; }).join('') + '</div></section>' +
       '<section class="guide-section"><h2>Common mistakes → corrections</h2>' + errors + '</section>' +
       '<aside class="safety-note"><span class="eyebrow">Safety</span><ul>' + listText(ex.safety) + '</ul><small>Stop for sharp pain, faintness, chest pain, or unusual shortness of breath. This is exercise education, not diagnosis or rehabilitation.</small></aside>' +
@@ -1027,6 +1067,13 @@
   function routeFromHash() {
     var parts = (location.hash || '#/today').replace(/^#\/?/, '').split('/');
     var tab = parts[0] || 'today';
+    if (cfg.onboarded && !SESSION && (!gymConfirmedToday() || forceGymPicker)) {
+      activateTab('today');
+      renderGymPicker();
+      if (location.hash !== '#/today') history.replaceState(null, '', '#/today');
+      window.scrollTo(0, 0);
+      return;
+    }
     if (tab === 'equipment' && parts[1]) {
       activateTab('equipment'); renderEquipment(); openEquipment(decodeURIComponent(parts.slice(1).join('/')));
     } else if (tab === 'exercise' && parts[1]) {
@@ -1080,10 +1127,12 @@
     var act = a.getAttribute('data-action'), d = a.getAttribute.bind(a);
     switch (act) {
       case 'ob-unit': cfg.units = d('data-u'); document.querySelectorAll('[data-action=ob-unit]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-u') === cfg.units); }); break;
+      case 'ob-gym': cfg.gymId = d('data-gym') === 'crunch' ? 'crunch' : 'home'; applyGymTheme(); document.querySelectorAll('[data-action=ob-gym]').forEach(function (b) { var selected = b.getAttribute('data-gym') === cfg.gymId; b.classList.toggle('on', selected); b.setAttribute('aria-pressed', selected); }); break;
       case 'ob-experience': cfg.experience = d('data-v'); document.querySelectorAll('[data-action=ob-experience]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-v') === cfg.experience); }); updateOnboardingRecommendation(); break;
       case 'ob-goal': trainingProfile.goal = d('data-v'); document.querySelectorAll('[data-action=ob-goal]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-v') === trainingProfile.goal); }); break;
       case 'ob-frequency': cfg.weeklyFrequency = +d('data-v'); document.querySelectorAll('[data-action=ob-frequency]').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-v') === cfg.weeklyFrequency); }); updateOnboardingRecommendation(); break;
-      case 'ob-done': cfg.name = (document.getElementById('obname') || {}).value || ''; cfg.onboarded = true; cfg.programId = PROGRAM_REGISTRY.recommend(cfg.experience, cfg.weeklyFrequency); state.selectedProgram = cfg.programId; ACTIVE_PROGRAM = PROGRAM_REGISTRY.get(cfg.programId); persist(); renderToday(); updateHeader(); break;
+      case 'ob-done': cfg.name = (document.getElementById('obname') || {}).value || ''; cfg.onboarded = true; cfg.gymConfirmedOn = todayISO(); cfg.programId = PROGRAM_REGISTRY.recommend(cfg.experience, cfg.weeklyFrequency); state.selectedProgram = cfg.programId; ACTIVE_PROGRAM = PROGRAM_REGISTRY.get(cfg.programId); persist(); applyGymTheme(); renderToday(); updateHeader(); break;
+      case 'select-daily-gym': cfg.gymId = d('data-gym') === 'crunch' ? 'crunch' : 'home'; cfg.gymConfirmedOn = todayISO(); forceGymPicker = false; equipmentFilter = 'All'; equipmentZoneFilter = 'All'; equipmentQuery = ''; persist(); applyGymTheme(); renderToday(); updateHeader(); toast(activeGymName() + ' activated for today'); break;
       case 'start-alone': showTab('today'); startAlone(); break;
       case 'start-day': showTab('today'); SESSION = { mode: 'alone', phase: 'time', dayId: d('data-day'), budgetMin: null }; renderSession(); break;
       case 'start-cardio': buildAndStart('cardio'); break;
@@ -1135,8 +1184,8 @@
         toast(requestedDays + ' training days selected' + (switchedProgram ? ' · ' + ACTIVE_PROGRAM.name + ' selected; history preserved' : ' · history preserved'));
         break;
       }
-      case 'gym-jump': showTab('equipment'); break;
-      case 'select-gym': cfg.gymId = d('data-gym') === 'crunch' ? 'crunch' : 'home'; equipmentFilter = 'All'; equipmentZoneFilter = 'All'; equipmentQuery = ''; persist(); renderEquipment(); toast(activeGymName() + ' selected for workouts and substitutions'); break;
+      case 'gym-jump': forceGymPicker = true; showTab('today'); break;
+      case 'select-gym': cfg.gymId = d('data-gym') === 'crunch' ? 'crunch' : 'home'; cfg.gymConfirmedOn = todayISO(); forceGymPicker = false; equipmentFilter = 'All'; equipmentZoneFilter = 'All'; equipmentQuery = ''; persist(); applyGymTheme(); routeFromHash(); toast(activeGymName() + ' activated for today'); break;
       case 'equipment-view': equipmentView = d('data-view') === 'exercises' ? 'exercises' : 'equipment'; equipmentQuery = ''; history.replaceState(null, '', '#/equipment'); renderEquipment(); break;
       case 'equipment-zone': equipmentZoneFilter = d('data-zone') || 'All'; renderEquipment(); break;
       case 'equipment-filter': equipmentFilter = d('data-cat'); renderEquipment(); break;
@@ -1185,13 +1234,14 @@
         var block = a.closest('.demoblock'), demo = block && block.querySelector('.demo, .motion-demo'); if (!demo) break;
         demo.classList.remove('start', 'end'); var paused = demo.classList.toggle('paused'); var svg = demo.querySelector('svg');
         if (svg && svg.pauseAnimations) { if (paused) svg.pauseAnimations(); else svg.unpauseAnimations(); }
+        var playStatus = block.querySelector('.motion-status strong'); if (playStatus) playStatus.textContent = paused ? 'Paused' : 'Playing full repetition';
         a.textContent = paused ? 'Play' : 'Pause'; a.setAttribute('aria-pressed', paused); break;
       }
       case 'demo-frame': {
         var db = a.closest('.demoblock'), dm = db && db.querySelector('.demo, .motion-demo'); if (!dm) break;
         dm.classList.remove('start', 'end'); dm.classList.add(d('data-frame')); dm.classList.add('paused');
         var motionSvg = dm.querySelector('svg'); if (motionSvg && motionSvg.pauseAnimations) { motionSvg.pauseAnimations(); motionSvg.setCurrentTime(d('data-frame') === 'end' ? Number(dm.getAttribute('data-duration') || 2.4) * 0.5 : 0); }
-        var toggle = db.querySelector('[data-action=demo-toggle]'); if (toggle) { toggle.textContent = 'Play'; toggle.setAttribute('aria-pressed', 'true'); } break;
+        var toggle = db.querySelector('[data-action=demo-toggle]'), frameStatus = db.querySelector('.motion-status strong'); if (toggle) { toggle.textContent = 'Play'; toggle.setAttribute('aria-pressed', 'true'); } if (frameStatus) frameStatus.textContent = d('data-frame') === 'end' ? 'End position' : 'Start position'; break;
       }
     }
   });
