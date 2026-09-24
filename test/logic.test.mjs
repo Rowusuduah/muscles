@@ -359,6 +359,43 @@ test('first-page gym gate scopes the exercise browser and exposes Crunch orange 
   assert.match(app, /Everything shown below is available at this gym/);
 });
 
+test('solo coach assigns a verified station from route and history while partner mode retains manual choice', () => {
+  const equipment = [
+    { id: 'press-a', name: 'Press A', exerciseIds: ['sel_chest_press'], verified: true, autoEligible: true, zoneId: 'selectorized' },
+    { id: 'press-b', name: 'Press B', exerciseIds: ['sel_chest_press'], verified: true, autoEligible: true, zoneId: 'upstairs' },
+    { id: 'press-manual', name: 'Uncertain press', exerciseIds: ['sel_chest_press'], verified: false, autoEligible: false, zoneId: 'selectorized' }
+  ];
+  const log = {
+    '2026-09-20': { exercises: [{ exId: 'sel_chest_press', machineId: 'press-b' }] },
+    '2026-09-22': { exercises: [{ exId: 'sel_chest_press', machineId: 'press-a' }] }
+  };
+  const continuity = L.selectEquipmentForExercise('sel_chest_press', equipment, log, 'selectorized');
+  assert.equal(continuity.machine.id, 'press-a');
+  assert.match(continuity.reason, /most recent logged session/i);
+  const routed = L.selectEquipmentForExercise('sel_chest_press', equipment, log, 'upstairs');
+  assert.equal(routed.machine.id, 'press-b');
+  assert.notEqual(routed.machine.id, 'press-manual');
+
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.match(app, /Coach chose your equipment/);
+  assert.match(app, /machines\.length && isPartner/);
+  assert.match(app, /SESSION\.mode !== 'partner'/);
+  assert.match(app, /partner_equipment_selected/);
+  assert.match(app, /Crunch route map · current stop highlighted/);
+  assert.match(app, /machineChoiceReason/);
+});
+
+test('installed app exposes explicit update checking and a new versioned cache', () => {
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  assert.match(app, /data-action="check-update"/);
+  assert.match(html, /window\.MUSCLES_UPDATES/);
+  assert.match(html, /reg\.update\(\)/);
+  assert.match(html, /visibilitychange/);
+  assert.match(sw, /2026-09-24-r14/);
+});
+
 test('motion guide has detailed phases and an exercise-specific plank-drag view', () => {
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   const svg = HOWTO.howtoSVG(EX.db_plank_drag, 'right');

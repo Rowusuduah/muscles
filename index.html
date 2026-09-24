@@ -133,6 +133,7 @@ header{padding:calc(20px + env(safe-area-inset-top)) 0 6px}
 .macho .nm{font-size:11px;padding:6px 7px;line-height:1.2}
 .macho.sel{border-color:var(--ember)}
 .macho.sel .nm{color:var(--ember)}
+.coach-machine{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;margin:0 14px 12px;padding:13px;border:1px solid var(--emberline);border-radius:12px;background:linear-gradient(135deg,var(--emberwash),var(--panel2))}.coach-machine>div{min-width:0}.coach-machine b,.coach-machine small{display:block}.coach-machine b{font-family:var(--disp);font-size:20px;line-height:1.05;text-transform:uppercase;margin:3px 0}.coach-machine small{font-size:11px;line-height:1.45;color:var(--muted)}.coach-machine .fieldlabel,.coach-machine .search{grid-column:1/-1}.training-map{margin:0 14px 12px}.training-map .map-zone{pointer-events:none}.training-map .map-zone.current{background:var(--emberwash);outline:2px solid var(--ember)}.training-map .map-zone.current .map-order{background:var(--ember);color:white;border-color:var(--ember)}
 
 .sets{border-top:1px solid var(--line)}
 .setrow{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
@@ -449,8 +450,10 @@ nav.tabs .inner{max-width:980px}
 <script>
 if('serviceWorker' in navigator){window.addEventListener('load',function(){
   navigator.serviceWorker.register('sw.js').then(function(reg){
+    var waitingWorker=reg.waiting||null;
     function promptUpdate(worker){
       if(!worker)return;
+      waitingWorker=worker;
       var old=document.getElementById('update-banner');if(old)old.remove();
       var banner=document.createElement('div');banner.id='update-banner';banner.className='update-banner';banner.setAttribute('role','status');
       banner.innerHTML='<span>A verified muscles update is ready.</span><button class="mini" id="apply-update">Update now</button>';
@@ -458,6 +461,19 @@ if('serviceWorker' in navigator){window.addEventListener('load',function(){
     }
     if(reg.waiting)promptUpdate(reg.waiting);
     reg.addEventListener('updatefound',function(){var worker=reg.installing;if(!worker)return;worker.addEventListener('statechange',function(){if(worker.state==='installed'&&navigator.serviceWorker.controller)promptUpdate(worker);});});
+    window.MUSCLES_UPDATES={
+      check:function(){
+        if(!navigator.onLine)return Promise.resolve('You are offline. The installed release will keep working.');
+        if(waitingWorker){promptUpdate(waitingWorker);return Promise.resolve('A new release is ready — tap Update now.');}
+        return reg.update().then(function(){
+          if(reg.waiting){promptUpdate(reg.waiting);return 'A new release is ready — tap Update now.';}
+          return 'Update check complete. If a newer release installs, Update now will appear.';
+        }).catch(function(){return 'Could not check right now. Your installed release is still available.';});
+      }
+    };
+    reg.update().catch(function(){});
+    document.addEventListener('visibilitychange',function(){if(!document.hidden&&navigator.onLine)reg.update().catch(function(){});});
+    window.addEventListener('online',function(){reg.update().catch(function(){});});
   }).catch(function(){});
   var refreshing=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(!refreshing){refreshing=true;location.reload();}});
 });}

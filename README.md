@@ -23,7 +23,10 @@ The signature Iron & Chalk dark theme is retained, with a system-aware light the
 - Upper/Lower for four sessions
 - Intermediate four-day strength and hypertrophy structure
 - 20/30/45/60/90/120-minute time fitting that stays inside the selected program
-- Automatic warm-up and ramp-up sets, RIR-aware double progression, conservative reduction suggestions, busy-machine substitutions, requeueing, custom partner sessions, and optional advanced techniques
+- Solo coaching automatically assigns one verified station using the planned route and the most recent compatible machine record; no equipment picker is shown during a coached workout.
+- Partner/custom sessions retain manual equipment choice because the partner leads the session.
+- Automatic warm-up and ramp-up sets, RIR-aware double progression, conservative reduction suggestions, intelligent busy-machine substitutions, requeueing, custom partner sessions, and optional advanced techniques
+- The current Crunch station can be opened directly in the existing equipment-zone map from the workout screen.
 - Correct load semantics for plates per side, dumbbells per hand, selector stacks, bodyweight assistance, and machine settings
 
 ## Run and validate
@@ -35,6 +38,8 @@ npm test
 ```
 
 The Node test suite covers the existing gym handbook and coaching logic plus Crunch inventory integrity, manual-only safeguards, zone-map metadata, exercise references, and full program-to-equipment coverage.
+
+Installed copies check for a new service worker on launch, when returning to the app, and when connectivity returns. Learn → App updates also provides a manual check and displays the current release.
 
 ## Project structure
 

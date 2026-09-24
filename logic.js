@@ -49,9 +49,29 @@
     equipment.forEach(function (e) { (e.exerciseIds || []).forEach(function (id) { s[id] = true; }); });
     return s;
   }
-  // which equipment can perform an exercise (for "pick your machine")
+  // which verified equipment can perform an exercise
   function machinesForExercise(exId, equipment) {
     return equipment.filter(function (e) { return (e.exerciseIds || []).indexOf(exId) >= 0; });
+  }
+  // Solo coaching chooses one verified station. It first preserves continuity with
+  // the most recently logged station when that still fits the planned route.
+  function selectEquipmentForExercise(exId, equipment, log, preferredZone) {
+    var candidates = machinesForExercise(exId, equipment || []).filter(function (machine) { return machine.autoEligible !== false && machine.verified !== false; });
+    if (!candidates.length) candidates = machinesForExercise(exId, equipment || []);
+    var allowed = {}; candidates.forEach(function (machine) { allowed[machine.id] = true; });
+    var recentId = null, dates = Object.keys(log || {}).sort().reverse();
+    for (var i = 0; i < dates.length && !recentId; i++) {
+      var exercises = (log[dates[i]] && log[dates[i]].exercises) || [];
+      for (var j = exercises.length - 1; j >= 0; j--) {
+        if (exercises[j].exId === exId && allowed[exercises[j].machineId]) { recentId = exercises[j].machineId; break; }
+      }
+    }
+    var recent = candidates.filter(function (machine) { return machine.id === recentId; })[0];
+    var sameZone = candidates.filter(function (machine) { return preferredZone && machine.zoneId === preferredZone; });
+    if (recent && (!preferredZone || recent.zoneId === preferredZone)) return { machine: recent, reason: 'Same verified station as your most recent logged session.' };
+    if (sameZone.length) return { machine: sameZone[0], reason: 'Best verified station for the planned gym route.' };
+    if (recent) return { machine: recent, reason: 'Your most recently logged verified station for this exercise.' };
+    return { machine: candidates[0] || null, reason: 'First high-confidence verified station for this exercise.' };
   }
 
   /* ---------------- session builder (time-aware) ---------------- */
@@ -406,7 +426,7 @@
   return {
     lbToKg: lbToKg, kgToLb: kgToLb, toDisplay: toDisplay, fromInput: fromInput,
     e1rm: e1rm, dayIdAt: dayIdAt, nextIndex: nextIndex, byId: byId,
-    availableExerciseIds: availableExerciseIds, machinesForExercise: machinesForExercise,
+    availableExerciseIds: availableExerciseIds, machinesForExercise: machinesForExercise, selectEquipmentForExercise: selectEquipmentForExercise,
     slotSeconds: slotSeconds, buildSession: buildSession, buildCardio: buildCardio, rampSets: rampSets,
     fitToBudget: fitToBudget, buildCustom: buildCustom, altsForExercise: altsForExercise,
     recentMuscles: recentMuscles, lastDayId: lastDayId, nextAloneDay: nextAloneDay, exercisesForBodyPart: exercisesForBodyPart,

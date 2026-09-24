@@ -3,6 +3,7 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
+  var APP_RELEASE = '2026.09.24.2';
   var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
   var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
@@ -59,6 +60,18 @@
   function applyGymTheme() { document.documentElement.setAttribute('data-gym', cfg && cfg.gymId === 'crunch' ? 'crunch' : 'home'); }
   function zoneName(zoneId) { var zone = window.CRUNCH_MAP && window.CRUNCH_MAP.zones.filter(function (z) { return z.id === zoneId; })[0]; return zone ? zone.name : String(zoneId || 'Unmapped').replace(/-/g, ' '); }
   function machinesForEx(exId) { return activeEquipment().filter(function (e) { return (e.exerciseIds || []).indexOf(exId) >= 0; }); }
+  function chooseMachineForExercise(exId, preferredZone) {
+    return L.selectEquipmentForExercise(exId, activeEquipment(), log, preferredZone);
+  }
+  function routeForAssignedSlots(slots) {
+    var groups = [];
+    (slots || []).forEach(function (slot) {
+      var zoneId = slot.zoneId || 'unmapped', previous = groups[groups.length - 1];
+      if (previous && previous.zoneId === zoneId) previous.exerciseIds.push(slot.exId);
+      else groups.push({ zoneId: zoneId, exerciseIds: [slot.exId] });
+    });
+    return groups;
+  }
   function nameOf(eq) { return eq ? (eqNames[eq.id] || eq.name) : ''; }
   function markFromMuscles(muscles, secondary) { var m = {}; (muscles || []).forEach(function (x) { m[x] = 'primary'; }); (secondary || []).forEach(function (x) { if (m[x] !== 'primary') m[x] = 'secondary'; }); return m; }
   function focusMark(focusMuscles, slots) {
@@ -274,7 +287,7 @@
     el.innerHTML = '<div class="topbar"><div class="eyebrow">Workout preview · ' + esc(activeGymName()) + '</div><button class="mini" data-action="cancel-session">Cancel</button></div>' +
       '<h1 class="day">' + esc(b.name) + '</h1><p class="sub"><b>Estimated ' + esc(b.estimatedDuration || b.estMin) + ' min</b> · ' + esc(b.durationEstimate ? b.durationEstimate.confidence : 'Calibration phase') + '</p>' +
       '<div class="panel coach-explain"><span class="eyebrow">Why today</span><p>' + esc(b.reasonSelected) + '</p><small>' + esc(b.readinessContext ? b.readinessContext.explanation : 'Normal planned session.') + '</small>' + (b.readinessContext && b.readinessContext.action === 'trim_accessory' ? '<button class="mini" data-action="restore-readiness-volume">Restore planned volume</button>' : '') + '</div>' +
-      '<div class="workout-preview">' + b.slots.map(function (slot, index) { var load = slot.pre && slot.pre.weight != null ? ' · ' + wLbl(slot.pre.weight) + (slot.ex.loadMode === 'perHand' ? '/hand' : '') : ' · calibration'; return '<div class="preview-row"><span class="idx">' + (index + 1) + '</span><div><b>' + esc(slot.ex.name) + '</b><small>' + slot.sets + ' × ' + slot.ex.repRange[0] + '–' + slot.ex.repRange[1] + (slot.ex.measure === 'duration' ? ' sec' : '') + ' · ' + slot.ex.defaultRIR + ' RIR' + load + ' · ' + esc(zoneName(slot.zoneId)) + '</small></div></div>'; }).join('') + '</div>' +
+      '<div class="workout-preview">' + b.slots.map(function (slot, index) { var load = slot.pre && slot.pre.weight != null ? ' · ' + wLbl(slot.pre.weight) + (slot.ex.loadMode === 'perHand' ? '/hand' : '') : ' · calibration'; var assigned = L.byId(machinesForEx(slot.exId))[slot.machineId]; return '<div class="preview-row"><span class="idx">' + (index + 1) + '</span><div><b>' + esc(slot.ex.name) + '</b><small>' + slot.sets + ' × ' + slot.ex.repRange[0] + '–' + slot.ex.repRange[1] + (slot.ex.measure === 'duration' ? ' sec' : '') + ' · ' + slot.ex.defaultRIR + ' RIR' + load + ' · ' + esc(assigned ? nameOf(assigned) : zoneName(slot.zoneId)) + (assigned && assigned.zoneId ? ' · ' + esc(zoneName(assigned.zoneId)) : '') + '</small></div></div>'; }).join('') + '</div>' +
       (route ? '<section class="route-preview"><span class="eyebrow">Workout route · training order preserved</span><div>' + route + '</div></section>' : '') +
       '<button class="cta" data-action="begin-previewed-workout">Start workout →</button>';
   }
@@ -298,7 +311,10 @@
         }
       }
       var pre = s.ex.equipType === 'dumbbell' ? COACH.recommendLoad(s.ex, COACH.historyFor(log, s.exId, 5), trainingProfile.availableDumbbellsLb, { targetSets: s.sets, repRange: s.ex.repRange }) : L.prescribe(s.ex, lifts[s.exId]);
-      s.machineId = (machinesForEx(s.exId)[0] || {}).id || null;
+      var assigned = chooseMachineForExercise(s.exId, s.zoneId);
+      s.machineId = assigned.machine ? assigned.machine.id : null;
+      s.machineChoiceReason = assigned.reason;
+      if (assigned.machine && assigned.machine.zoneId) s.zoneId = assigned.machine.zoneId;
       s.pre = pre; s.showHow = false; s.superEx = null; s.techniqueNote = '';
       s.log = freshLog(s.sets, pre.weight);
       s.targetSets = s.sets; s.targetRepRange = s.ex.repRange.slice(); s.targetRIR = s.ex.defaultRIR; s.restRangeSec = [Math.round(s.ex.restSec * 0.8), Math.round(s.ex.restSec * 1.25)]; s.recommendedWeight = pre.weight; s.loadConfidence = pre.confidence || (pre.mode === 'calibrate' ? 'Calibration phase' : 'Some history'); s.progressionReason = pre.reason || pre.note;
@@ -307,8 +323,17 @@
           var warm = newSet(ramp.weight, 'warmup'); warm.targetReps = ramp.targetReps; warm.rampLabel = ramp.label; s.log.unshift(warm);
         });
       }
+      if (assigned.machine) built.decisionLog.push({ type: 'equipment_assigned', exerciseId: s.exId, machineId: assigned.machine.id, reasons: [assigned.reason, 'verified at ' + activeGymName()] });
     });
+    built.route = routeForAssignedSlots(built.slots);
     return built;
+  }
+
+  function crunchTrainingMapHtml(activeZoneId) {
+    if (cfg.gymId !== 'crunch' || !window.CRUNCH_MAP || !SESSION.showMap) return '';
+    return '<section class="panel training-map" aria-label="Crunch equipment-zone map"><div class="eyebrow">Crunch route map · current stop highlighted</div><div class="map-route">' + window.CRUNCH_MAP.zones.map(function (zone, index) {
+      return '<div class="map-zone ' + (zone.id === activeZoneId ? 'current' : '') + '"><span class="map-order">' + (index + 1) + '</span><div><b>' + esc(zone.name) + '</b><small>Photos ' + esc(zone.ranges.join(', ')) + '</small><p>' + esc(zone.note) + '</p></div></div>';
+    }).join('') + '</div><p class="source-line">Schematic / not to scale. The highlighted zone is the station selected by the coach.</p></section>';
   }
 
   /* ---------- ACTIVE session (timed logging + how-to) ---------- */
@@ -320,16 +345,19 @@
     var mark = focusMark(b.focusMuscles, b.slots); var pr = sessionProgress();
     var pips = ''; for (var i = 0; i < Math.min(pr.total, 26); i++) pips += '<span class="pip' + (i < pr.done ? ' on' : '') + '"></span>';
     var machines = machinesForEx(s.exId); var machSel = L.byId(machines)[s.machineId] || machines[0];
+    var isPartner = SESSION.mode === 'partner';
     var ex = s.ex;
     var lastHistory = COACH.historyFor(log, s.exId, 1)[0];
     var sameZoneAhead = 0; for (var zi = SESSION.idx; zi < b.slots.length && b.slots[zi].zoneId === s.zoneId; zi++) sameZoneAhead++;
     var locationCue = s.zoneId && s.zoneId !== 'unmapped' ? '<div class="location-cue"><b>' + esc(zoneName(s.zoneId)) + '</b><span>' + (sameZoneAhead > 1 ? 'Next ' + sameZoneAhead + ' exercises stay here.' : 'Current equipment zone.') + '</span></div>' : '';
 
     var gymSwapNote = s.gymSwapFrom ? '<div class="coach-suggest"><span>Crunch availability swap: <b>' + esc(EX[s.gymSwapFrom] ? EX[s.gymSwapFrom].name : s.gymSwapFrom) + '</b> → <b>' + esc(ex.name) + '</b>.</span></div>' : '';
-    var picker = machines.length ? '<div class="picker"><div class="lab">Equipment location photo · where to get it</div><div class="machopts">' +
+    var picker = machines.length && isPartner ? '<div class="picker"><div class="lab">Partner-led equipment choice</div><div class="machopts">' +
       machines.map(function (m) { return '<button class="macho ' + (m.id === s.machineId ? 'sel' : '') + '" data-action="pick-machine" data-machine="' + m.id + '" aria-pressed="' + (m.id === s.machineId) + '"><img src="' + m.photo + '" alt="' + esc(m.name) + '"><span class="nm">' + esc(m.name) + (cfg.gymId === 'crunch' && m.zoneId ? '<small>Zone · ' + esc(m.zoneId.replace(/-/g, ' ')) + '</small>' : '') + '</span></button>'; }).join('') + '</div>' +
       (machSel ? '<label class="fieldlabel compact" for="machinesetting">Machine setting <span>seat, pin or pad position</span></label><input class="search compact" id="machinesetting" data-machine-setting="' + esc(machSel.id) + '" value="' + esc(machineSettings[machSel.id] || '') + '" placeholder="Example: seat 4">' : '') +
-      multiUse(machSel, s) + '</div>' : '';
+      multiUse(machSel, s) + '</div>' : (machSel ? '<section class="coach-machine"><div><span class="eyebrow">Coach chose your equipment</span><b>' + esc(nameOf(machSel)) + '</b><small>' + esc(s.machineChoiceReason || 'Verified for this exercise.') + (machSel.zoneId ? ' Go to ' + esc(zoneName(machSel.zoneId)) + '.' : '') + '</small></div>' +
+        (cfg.gymId === 'crunch' ? '<button type="button" class="mini" data-action="toggle-session-map" aria-expanded="' + (!!SESSION.showMap) + '">' + (SESSION.showMap ? 'Hide map' : 'Show on map') + '</button>' : '') +
+        '<label class="fieldlabel compact" for="machinesetting">Your saved machine setting <span>seat, pin or pad position</span></label><input class="search compact" id="machinesetting" data-machine-setting="' + esc(machSel.id) + '" value="' + esc(machineSettings[machSel.id] || '') + '" placeholder="Example: seat 4"></section>' : '');
 
     var tgt = s.pre.mode === 'calibrate' ? 'find your weight' : wLbl(s.pre.weight) + (ex.loadMode === 'perHand' ? '/hand' : '');
     var repUnit = ex.measure === 'duration' ? ' sec' : '';
@@ -349,7 +377,7 @@
         '<div><div class="cnum">' + String(SESSION.idx + 1).padStart(2, '0') + ' / ' + b.slots.length + ' · ' + s.role.toUpperCase() + '</div>' +
         '<div class="cname">' + esc(ex.name) + '</div><div class="ctag">Target: ' + esc(MU[s.target] ? MU[s.target].name : s.target) + '</div></div>' +
         '<button class="howbtn" data-action="toggle-how" style="margin-left:auto;align-self:flex-start">' + (s.showHow ? 'Hide' : 'How ▸') + '</button></div>' +
-        locationCue + picker + target + (s.liveAdvice ? '<div class="coach-suggest"><span>' + esc(s.liveAdvice.message) + '</span></div>' : '') + how +
+        locationCue + picker + crunchTrainingMapHtml(s.zoneId) + target + (s.liveAdvice ? '<div class="coach-suggest"><span>' + esc(s.liveAdvice.message) + '</span></div>' : '') + how +
         ((ex.settings || []).length ? '<label class="fieldlabel compact" for="exsetting">Exercise setting <span>' + esc(ex.settings.join(' · ')) + '</span></label><input class="search compact" id="exsetting" data-exercise-setting="' + esc(ex.id) + '" value="' + esc(trainingProfile.exerciseSettings[ex.id] || '') + '" placeholder="Example: bench notch 3 · neutral grip">' : '') +
         '<div class="note-field"><label class="fieldlabel" for="technote">Pain-free technique note <span>optional</span></label><input id="technote" class="search compact" data-technique-note value="' + esc(s.techniqueNote || '') + '" placeholder="Settings, comfort, or a cue that helped"></div>' +
         '<div class="sets">' + rows + '</div>' +
@@ -536,6 +564,19 @@
   function busy() {
     var s = SESSION.built.slots[SESSION.idx];
     var ranked = COACH.rankedAlternatives(s.ex, s.alt, EX, activeEquipment(), trainingProfile, log, s.zoneId);
+    if (SESSION.mode !== 'partner') {
+      if (ranked.length) {
+        var automatic = ranked[0];
+        swapTo(automatic.exercise.id);
+        toast('Coach switched you to ' + automatic.exercise.name + ' · records stay together');
+        return;
+      }
+      if (SESSION.idx < SESSION.built.slots.length - 1) {
+        requeue();
+        toast('No verified alternative here — coach moved this exercise to the end');
+      } else toast('No verified alternative available. Wait for this station or end the exercise.');
+      return;
+    }
     if (!ranked.length) { toast('No verified same-role alternative right now — requeue this exercise'); return; }
     document.getElementById('s-today').insertAdjacentHTML('afterbegin',
       '<div class="panel fade" id="altpanel"><div class="tinfo"><div class="lab">Machine busy — swap to</div></div>' +
@@ -547,13 +588,15 @@
   function swapTo(exId) {
     var s = SESSION.built.slots[SESSION.idx];
     var fromId = s.exId;
-    s.exId = exId; s.ex = EX[exId]; s.alt = L.altsForExercise(exId, EX); s.machineId = (machinesForEx(exId)[0] || {}).id || null; s.showHow = false;
-    s.zoneId = (machinesForEx(exId)[0] || {}).zoneId || 'unmapped';
+    s.exId = exId; s.ex = EX[exId]; s.alt = L.altsForExercise(exId, EX); s.showHow = false;
+    var assigned = chooseMachineForExercise(exId, s.zoneId);
+    s.machineId = assigned.machine ? assigned.machine.id : null; s.machineChoiceReason = assigned.reason;
+    s.zoneId = (assigned.machine || {}).zoneId || 'unmapped';
     s.pre = s.ex.equipType === 'dumbbell' ? COACH.recommendLoad(s.ex, COACH.historyFor(log, exId, 5), trainingProfile.availableDumbbellsLb, { targetSets: s.sets }) : L.prescribe(s.ex, lifts[exId]); s.superEx = null;
     s.log = freshLog(s.sets, s.pre.weight);
     var key = fromId + '>' + exId; trainingProfile.preferences.substitutionCounts[key] = Number(trainingProfile.preferences.substitutionCounts[key] || 0) + 1;
-    var decision = { type: 'exercise_swap', from: fromId, to: exId, reasons: ['equipment marked busy', 'verified alternative', s.ex.pattern === EX[fromId].pattern ? 'same movement pattern' : 'same intended muscle/training role'] };
-    decisionLog.push(decision); decisionLog = decisionLog.slice(-100); SESSION.built.decisionLog.push(decision); SESSION.built.route = COACH.routeFor(SESSION.built.slots, activeEquipment()); persist();
+    var decision = { type: 'exercise_swap', from: fromId, to: exId, machineId: s.machineId, reasons: ['equipment marked busy', 'verified alternative', s.ex.pattern === EX[fromId].pattern ? 'same movement pattern' : 'same intended muscle/training role'] };
+    decisionLog.push(decision); decisionLog = decisionLog.slice(-100); SESSION.built.decisionLog.push(decision); SESSION.built.route = routeForAssignedSlots(SESSION.built.slots); persist();
     SESSION._rest = null; renderActive();
   }
   function requeue() {
@@ -631,7 +674,7 @@
       var sets = work.map(function (x) { return { reps: x.reps, durationSec: x.durationSec != null ? x.durationSec : undefined, distance: x.distance != null ? x.distance : undefined, weight: x.weight || 0, weightPerHand: s.ex.loadMode === 'perHand' ? x.weight || 0 : undefined, loadMode: s.ex.loadMode, rir: x.rir != null ? x.rir : undefined, sides: x.sides || undefined, restBeforeSec: x.restBeforeSec != null ? x.restBeforeSec : undefined, durSec: Math.round(x.durSec), endClock: x.endClock, clusters: (x.clusters && x.clusters.length > 1) ? x.clusters : undefined }; });
       if (sets.length) {
         var sideSets = s.ex.handedness === 'unilateral' ? { left: work.filter(function (x) { return x.sides; }).map(function (x) { return x.sides.left; }), right: work.filter(function (x) { return x.sides; }).map(function (x) { return x.sides.right; }) } : undefined;
-        entry.exercises.push({ exId: s.exId, exerciseVariation: s.ex.name, loadMode: s.ex.loadMode, machineId: s.machineId, machineSetting: s.machineId ? machineSettings[s.machineId] || '' : '', exerciseSetting: trainingProfile.exerciseSettings[s.exId] || '', techniqueNote: s.techniqueNote || '', sideSets: sideSets, sets: sets }); lifts[s.exId] = L.updateLift(lifts[s.exId], s.ex, sets);
+        entry.exercises.push({ exId: s.exId, exerciseVariation: s.ex.name, loadMode: s.ex.loadMode, machineId: s.machineId, machineChoiceReason: s.machineChoiceReason || '', machineSetting: s.machineId ? machineSettings[s.machineId] || '' : '', exerciseSetting: trainingProfile.exerciseSettings[s.exId] || '', techniqueNote: s.techniqueNote || '', sideSets: sideSets, sets: sets }); lifts[s.exId] = L.updateLift(lifts[s.exId], s.ex, sets);
         var restSamples = sets.filter(function (set) { return set.restBeforeSec != null; }).map(function (set) { return set.restBeforeSec; });
         if (restSamples.length) trainingProfile.typicalRestSec[s.exId] = Math.round(restSamples.reduce(function (sum, value) { return sum + value; }, 0) / restSamples.length);
         trainingProfile.typicalExerciseSec[s.exId] = Math.round(work.reduce(function (sum, set) { return sum + Number(set.durSec || 0); }, 0));
@@ -1024,6 +1067,7 @@
       '<div class="setting-row"><div style="width:100%">' + frequencyPicker() + '</div></div>' +
       '<div class="setting-row"><span><b>Units</b><small>Current display: ' + cfg.units + '</small></span><button class="mini" data-action="toggle-units">Switch to ' + (cfg.units === 'lb' ? 'kg' : 'lb') + '</button></div>' +
       '<div class="setting-row"><span><b>Advanced tools</b><small>Supersets and rest-pause; off by default for beginners.</small></span><button class="mini ' + (cfg.advanced ? 'busy' : '') + '" data-action="toggle-advanced" aria-pressed="' + cfg.advanced + '">' + (cfg.advanced ? 'On' : 'Off') + '</button></div>' +
+      '<div class="setting-row"><span><b>App updates</b><small id="update-detail">Release ' + APP_RELEASE + ' · checks automatically when the app opens.</small></span><button class="mini" data-action="check-update">Check now</button></div>' +
       '<div class="setting-row"><span><b>Offline readiness</b><small id="offline-detail">Checking cached app shell…</small></span><span class="offline-badge" id="offline-badge">Checking</span></div></div>' +
       '<div class="panel backup"><span class="fieldlabel">Device-local backup</span><p class="sub">Export includes settings, history, records, machine settings and nicknames. Import validates first and asks before replacing this device’s state.</p><div class="inline-field"><button class="mini" data-action="export-backup">Export JSON</button><label class="mini file-button" for="importbackup">Import JSON</label><input id="importbackup" type="file" accept="application/json,.json" hidden></div></div>' +
       '<div class="panel backup"><span class="fieldlabel">Cloud sync — Google Drive</span><p class="sub">Sign in with Google to save your training data to a single file in your Drive and keep it in sync across devices. Optional; the app works fully offline without it.</p>' +
@@ -1149,7 +1193,16 @@
       case 'toggle-ex': { var id = d('data-ex'); var i = SESSION.picked.indexOf(id); if (i >= 0) SESSION.picked.splice(i, 1); else SESSION.picked.push(id); renderCompose(); break; }
       case 'partner-time': if (!SESSION.picked.length) { toast('Add at least one exercise'); break; } SESSION.phase = 'ptime'; renderSession(); break;
       case 'partner-go': partnerGo(+d('data-min')); break;
-      case 'pick-machine': SESSION.built.slots[SESSION.idx].machineId = d('data-machine'); renderActive(); break;
+      case 'pick-machine': {
+        if (!SESSION || SESSION.mode !== 'partner') break;
+        var manualSlot = SESSION.built.slots[SESSION.idx], manualMachine = L.byId(machinesForEx(manualSlot.exId))[d('data-machine')];
+        if (!manualMachine) break;
+        manualSlot.machineId = manualMachine.id; manualSlot.zoneId = manualMachine.zoneId || manualSlot.zoneId; manualSlot.machineChoiceReason = 'Selected by you for this partner-led session.';
+        SESSION.built.decisionLog.push({ type: 'partner_equipment_selected', exerciseId: manualSlot.exId, machineId: manualMachine.id, reasons: ['partner-led manual choice'] });
+        SESSION.built.route = routeForAssignedSlots(SESSION.built.slots);
+        renderActive(); break;
+      }
+      case 'toggle-session-map': SESSION.showMap = !SESSION.showMap; renderActive(); break;
       case 'switch-ex': swapTo(d('data-ex')); break;
       case 'toggle-how': { var s = SESSION.built.slots[SESSION.idx]; s.showHow = !s.showHow; renderActive(); break; }
       case 'toggle-why': { var why = a.parentElement && a.parentElement.querySelector('.why-copy'); if (why) why.classList.toggle('hidden'); break; }
@@ -1224,6 +1277,17 @@
         break;
       }
       case 'toggle-advanced': cfg.advanced = !cfg.advanced; persist(); renderLearn(); toast('Advanced tools ' + (cfg.advanced ? 'enabled' : 'hidden')); break;
+      case 'check-update': {
+        var updateDetail = document.getElementById('update-detail');
+        if (updateDetail) updateDetail.textContent = 'Checking for the newest release…';
+        if (window.MUSCLES_UPDATES && window.MUSCLES_UPDATES.check) {
+          window.MUSCLES_UPDATES.check().then(function (message) { var current = document.getElementById('update-detail'); if (current) current.textContent = message; toast(message); });
+        } else {
+          if (updateDetail) updateDetail.textContent = 'Update checking becomes available after the app is installed or refreshed online.';
+          toast('Refresh once online to enable update checking');
+        }
+        break;
+      }
       case 'export-backup': exportBackup(); break;
       case 'drive-connect': if (window.MDRIVE) { window.MDRIVE.connect(); updateDrivePanel(); } break;
       case 'drive-save': if (window.MDRIVE) window.MDRIVE.saveNow(); break;
