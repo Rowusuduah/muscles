@@ -25,6 +25,7 @@ The signature Iron & Chalk dark theme is retained, with a system-aware light the
 - 20/30/45/60/90/120-minute time fitting that stays inside the selected program
 - Solo coaching automatically assigns one verified station using the planned route and the most recent compatible machine record; no equipment picker is shown during a coached workout.
 - Partner/custom sessions retain manual equipment choice because the partner leads the session.
+- A guided load test evaluates a user-chosen labeled load from completed reps, 0–5 RIR, technique quality and pain. It iterates by the actual configured dumbbell rack or equipment increment, handles assistance in the correct direction, and fills working sets only after a pain-free 1–3-RIR result.
 - Automatic warm-up and ramp-up sets, RIR-aware double progression, conservative reduction suggestions, intelligent busy-machine substitutions, requeueing, custom partner sessions, and optional advanced techniques
 - The current Crunch station can be opened directly in the existing equipment-zone map from the workout screen.
 - Correct load semantics for plates per side, dumbbells per hand, selector stacks, bodyweight assistance, and machine settings

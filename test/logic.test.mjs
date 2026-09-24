@@ -385,6 +385,39 @@ test('solo coach assigns a verified station from route and history while partner
   assert.match(app, /machineChoiceReason/);
 });
 
+test('guided load test identifies a suitable load without guessing and respects assistance semantics', () => {
+  const rack = [35, 40, 45, 50, 55];
+  const right = L.assessLoadTest(EX.db_bench, { load: 45, reps: 10, rir: 2, clean: true, pain: false }, { availableDumbbellsLb: rack });
+  assert.equal(right.accepted, true);
+  assert.equal(right.verdict, 'right');
+  assert.equal(right.load, 45);
+
+  const heavy = L.assessLoadTest(EX.db_bench, { load: 50, reps: 6, rir: 0, clean: true, pain: false }, { availableDumbbellsLb: rack });
+  assert.equal(heavy.verdict, 'too_heavy');
+  assert.equal(heavy.suggestedLoad, 45);
+
+  const light = L.assessLoadTest(EX.db_bench, { load: 45, reps: 14, rir: 4, clean: true, pain: false }, { availableDumbbellsLb: rack });
+  assert.equal(light.verdict, 'too_light');
+  assert.equal(light.suggestedLoad, 50);
+
+  const assistedTooHard = L.assessLoadTest(EX.assisted_pullup, { load: 70, reps: 4, rir: 0, clean: false, pain: false });
+  assert.equal(assistedTooHard.verdict, 'too_heavy');
+  assert.equal(assistedTooHard.suggestedLoad, 80, 'more selected assistance should make the next test easier');
+
+  const pain = L.assessLoadTest(EX.db_bench, { load: 40, reps: 5, rir: 3, clean: true, pain: true }, { availableDumbbellsLb: rack });
+  assert.equal(pain.verdict, 'stop');
+  assert.equal(pain.suggestedLoad, null);
+});
+
+test('load-test UI records attempts separately and fills working sets only after acceptance', () => {
+  const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.match(app, /Guided load test · not a working set/);
+  assert.match(app, /data-action="evaluate-load-test"/);
+  assert.match(app, /type: 'load_calibrated'/);
+  assert.match(app, /loadTests: \(s\.loadTests \|\| \[\]\)\.slice\(\)/);
+  assert.match(app, /setItem\.kind !== 'warmup'/);
+});
+
 test('installed app exposes explicit update checking and a new versioned cache', () => {
   const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -393,7 +426,7 @@ test('installed app exposes explicit update checking and a new versioned cache',
   assert.match(html, /window\.MUSCLES_UPDATES/);
   assert.match(html, /reg\.update\(\)/);
   assert.match(html, /visibilitychange/);
-  assert.match(sw, /2026-09-24-r14/);
+  assert.match(sw, /2026-09-24-r15/);
 });
 
 test('motion guide has detailed phases and an exercise-specific plank-drag view', () => {

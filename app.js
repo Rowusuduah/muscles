@@ -3,7 +3,7 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
-  var APP_RELEASE = '2026.09.24.2';
+  var APP_RELEASE = '2026.09.24.3';
   var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
   var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
@@ -315,7 +315,7 @@
       s.machineId = assigned.machine ? assigned.machine.id : null;
       s.machineChoiceReason = assigned.reason;
       if (assigned.machine && assigned.machine.zoneId) s.zoneId = assigned.machine.zoneId;
-      s.pre = pre; s.showHow = false; s.superEx = null; s.techniqueNote = '';
+      s.pre = pre; s.showHow = false; s.superEx = null; s.techniqueNote = ''; s.loadTests = []; s.loadTestOpen = false; s.loadTestResult = null;
       s.log = freshLog(s.sets, pre.weight);
       s.targetSets = s.sets; s.targetRepRange = s.ex.repRange.slice(); s.targetRIR = s.ex.defaultRIR; s.restRangeSec = [Math.round(s.ex.restSec * 0.8), Math.round(s.ex.restSec * 1.25)]; s.recommendedWeight = pre.weight; s.loadConfidence = pre.confidence || (pre.mode === 'calibrate' ? 'Calibration phase' : 'Some history'); s.progressionReason = pre.reason || pre.note;
       if (built.mode === 'coached') {
@@ -334,6 +334,29 @@
     return '<section class="panel training-map" aria-label="Crunch equipment-zone map"><div class="eyebrow">Crunch route map · current stop highlighted</div><div class="map-route">' + window.CRUNCH_MAP.zones.map(function (zone, index) {
       return '<div class="map-zone ' + (zone.id === activeZoneId ? 'current' : '') + '"><span class="map-order">' + (index + 1) + '</span><div><b>' + esc(zone.name) + '</b><small>Photos ' + esc(zone.ranges.join(', ')) + '</small><p>' + esc(zone.note) + '</p></div></div>';
     }).join('') + '</div><p class="source-line">Schematic / not to scale. The highlighted zone is the station selected by the coach.</p></section>';
+  }
+
+  function supportsLoadTest(ex) {
+    return ex && ex.role !== 'cardio' && ex.measure !== 'duration' && ['perSide', 'perHand', 'stack', 'assistance', 'total'].indexOf(ex.loadMode) >= 0;
+  }
+  function loadTestPanel(slot, ex) {
+    if (!supportsLoadTest(ex)) return '';
+    var result = slot.loadTestResult;
+    if (!slot.loadTestOpen) {
+      var heading = result && result.accepted ? 'Starting load confirmed' : (slot.pre.mode === 'calibrate' ? 'No reliable load record yet' : 'Want to verify this load?');
+      var message = result && result.accepted ? wLbl(result.load) + (ex.loadMode === 'perHand' ? ' per hand' : '') + ' passed the controlled load test. It is now filled into your working sets.' : 'The coach will test a load you choose; it will not guess your strength. The test set is recorded separately and does not count as a working set.';
+      return '<section class="load-test-callout ' + (result && result.accepted ? 'accepted' : '') + '"><div><span class="eyebrow">Guided load test</span><b>' + esc(heading) + '</b><small>' + esc(message) + '</small></div><button type="button" class="mini" data-action="start-load-test">' + (result && result.accepted ? 'Retest' : 'Find my load') + '</button></section>';
+    }
+    var draft = slot.loadTestDraft || {}, displayLoad = draft.load != null ? L.toDisplay(draft.load, cfg.units) : '';
+    var feedback = result ? '<div class="load-test-result ' + esc(result.verdict) + '" role="status"><b>' + (result.accepted ? 'Right load' : (result.verdict === 'stop' ? 'Stop' : 'Adjust and retest')) + '</b><span>' + esc(result.message) + '</span></div>' : '';
+    return '<section class="load-test-panel"><div class="load-test-head"><div><span class="eyebrow">Guided load test · not a working set</span><b>Test one controlled set</b></div><button type="button" class="mini" data-action="cancel-load-test">Close</button></div>' +
+      '<ol><li>Choose a conservative labeled load—do not guess from another person.</li><li>Perform controlled repetitions. Stop for pain or when clean technique changes.</li><li>Report the result below; aim for ' + ex.repRange[0] + '–' + ex.repRange[1] + ' reps with 1–3 clean reps left.</li></ol>' + feedback +
+      '<div class="load-test-fields"><label>Test load <span>' + cfg.units + ' · ' + esc(loadLabel(ex)) + '</span><input class="search compact" id="loadtestweight" type="number" min="0" step="any" inputmode="decimal" value="' + displayLoad + '" placeholder="Labeled load"></label>' +
+      '<label>Clean reps completed<input class="search compact" id="loadtestreps" type="number" min="1" inputmode="numeric" value="" placeholder="Reps"></label>' +
+      '<label>Clean reps left (RIR)<input class="search compact" id="loadtestrir" type="number" min="0" max="5" inputmode="numeric" value="" placeholder="0–5"></label>' +
+      '<label>Technique stayed clean<select class="search compact" id="loadtestclean"><option value="yes" selected>Yes</option><option value="no">No</option></select></label>' +
+      '<label>Any pain?<select class="search compact" id="loadtestpain"><option value="no" selected>No</option><option value="yes">Yes—stop</option></select></label></div>' +
+      '<button type="button" class="cta" data-action="evaluate-load-test">Evaluate this load</button><p class="load-test-note">Rest before the next attempt. Do not repeatedly test to failure.</p></section>';
   }
 
   /* ---------- ACTIVE session (timed logging + how-to) ---------- */
@@ -377,7 +400,7 @@
         '<div><div class="cnum">' + String(SESSION.idx + 1).padStart(2, '0') + ' / ' + b.slots.length + ' · ' + s.role.toUpperCase() + '</div>' +
         '<div class="cname">' + esc(ex.name) + '</div><div class="ctag">Target: ' + esc(MU[s.target] ? MU[s.target].name : s.target) + '</div></div>' +
         '<button class="howbtn" data-action="toggle-how" style="margin-left:auto;align-self:flex-start">' + (s.showHow ? 'Hide' : 'How ▸') + '</button></div>' +
-        locationCue + picker + crunchTrainingMapHtml(s.zoneId) + target + (s.liveAdvice ? '<div class="coach-suggest"><span>' + esc(s.liveAdvice.message) + '</span></div>' : '') + how +
+        locationCue + picker + crunchTrainingMapHtml(s.zoneId) + target + loadTestPanel(s, ex) + (s.liveAdvice ? '<div class="coach-suggest"><span>' + esc(s.liveAdvice.message) + '</span></div>' : '') + how +
         ((ex.settings || []).length ? '<label class="fieldlabel compact" for="exsetting">Exercise setting <span>' + esc(ex.settings.join(' · ')) + '</span></label><input class="search compact" id="exsetting" data-exercise-setting="' + esc(ex.id) + '" value="' + esc(trainingProfile.exerciseSettings[ex.id] || '') + '" placeholder="Example: bench notch 3 · neutral grip">' : '') +
         '<div class="note-field"><label class="fieldlabel" for="technote">Pain-free technique note <span>optional</span></label><input id="technote" class="search compact" data-technique-note value="' + esc(s.techniqueNote || '') + '" placeholder="Settings, comfort, or a cue that helped"></div>' +
         '<div class="sets">' + rows + '</div>' +
@@ -592,7 +615,7 @@
     var assigned = chooseMachineForExercise(exId, s.zoneId);
     s.machineId = assigned.machine ? assigned.machine.id : null; s.machineChoiceReason = assigned.reason;
     s.zoneId = (assigned.machine || {}).zoneId || 'unmapped';
-    s.pre = s.ex.equipType === 'dumbbell' ? COACH.recommendLoad(s.ex, COACH.historyFor(log, exId, 5), trainingProfile.availableDumbbellsLb, { targetSets: s.sets }) : L.prescribe(s.ex, lifts[exId]); s.superEx = null;
+    s.pre = s.ex.equipType === 'dumbbell' ? COACH.recommendLoad(s.ex, COACH.historyFor(log, exId, 5), trainingProfile.availableDumbbellsLb, { targetSets: s.sets }) : L.prescribe(s.ex, lifts[exId]); s.superEx = null; s.loadTests = []; s.loadTestOpen = false; s.loadTestResult = null;
     s.log = freshLog(s.sets, s.pre.weight);
     var key = fromId + '>' + exId; trainingProfile.preferences.substitutionCounts[key] = Number(trainingProfile.preferences.substitutionCounts[key] || 0) + 1;
     var decision = { type: 'exercise_swap', from: fromId, to: exId, machineId: s.machineId, reasons: ['equipment marked busy', 'verified alternative', s.ex.pattern === EX[fromId].pattern ? 'same movement pattern' : 'same intended muscle/training role'] };
@@ -674,7 +697,7 @@
       var sets = work.map(function (x) { return { reps: x.reps, durationSec: x.durationSec != null ? x.durationSec : undefined, distance: x.distance != null ? x.distance : undefined, weight: x.weight || 0, weightPerHand: s.ex.loadMode === 'perHand' ? x.weight || 0 : undefined, loadMode: s.ex.loadMode, rir: x.rir != null ? x.rir : undefined, sides: x.sides || undefined, restBeforeSec: x.restBeforeSec != null ? x.restBeforeSec : undefined, durSec: Math.round(x.durSec), endClock: x.endClock, clusters: (x.clusters && x.clusters.length > 1) ? x.clusters : undefined }; });
       if (sets.length) {
         var sideSets = s.ex.handedness === 'unilateral' ? { left: work.filter(function (x) { return x.sides; }).map(function (x) { return x.sides.left; }), right: work.filter(function (x) { return x.sides; }).map(function (x) { return x.sides.right; }) } : undefined;
-        entry.exercises.push({ exId: s.exId, exerciseVariation: s.ex.name, loadMode: s.ex.loadMode, machineId: s.machineId, machineChoiceReason: s.machineChoiceReason || '', machineSetting: s.machineId ? machineSettings[s.machineId] || '' : '', exerciseSetting: trainingProfile.exerciseSettings[s.exId] || '', techniqueNote: s.techniqueNote || '', sideSets: sideSets, sets: sets }); lifts[s.exId] = L.updateLift(lifts[s.exId], s.ex, sets);
+        entry.exercises.push({ exId: s.exId, exerciseVariation: s.ex.name, loadMode: s.ex.loadMode, machineId: s.machineId, machineChoiceReason: s.machineChoiceReason || '', machineSetting: s.machineId ? machineSettings[s.machineId] || '' : '', exerciseSetting: trainingProfile.exerciseSettings[s.exId] || '', techniqueNote: s.techniqueNote || '', loadTests: (s.loadTests || []).slice(), sideSets: sideSets, sets: sets }); lifts[s.exId] = L.updateLift(lifts[s.exId], s.ex, sets);
         var restSamples = sets.filter(function (set) { return set.restBeforeSec != null; }).map(function (set) { return set.restBeforeSec; });
         if (restSamples.length) trainingProfile.typicalRestSec[s.exId] = Math.round(restSamples.reduce(function (sum, value) { return sum + value; }, 0) / restSamples.length);
         trainingProfile.typicalExerciseSec[s.exId] = Math.round(work.reduce(function (sum, set) { return sum + Number(set.durSec || 0); }, 0));
@@ -1206,6 +1229,34 @@
       case 'switch-ex': swapTo(d('data-ex')); break;
       case 'toggle-how': { var s = SESSION.built.slots[SESSION.idx]; s.showHow = !s.showHow; renderActive(); break; }
       case 'toggle-why': { var why = a.parentElement && a.parentElement.querySelector('.why-copy'); if (why) why.classList.toggle('hidden'); break; }
+      case 'start-load-test': {
+        var testSlot = SESSION.built.slots[SESSION.idx];
+        testSlot.loadTestOpen = true; testSlot.loadTestResult = null;
+        testSlot.loadTestDraft = { load: testSlot.pre && testSlot.pre.weight != null ? testSlot.pre.weight : null };
+        renderActive(); break;
+      }
+      case 'cancel-load-test': { var closingSlot = SESSION.built.slots[SESSION.idx]; closingSlot.loadTestOpen = false; renderActive(); break; }
+      case 'evaluate-load-test': {
+        var loadSlot = SESSION.built.slots[SESSION.idx], weightField = document.getElementById('loadtestweight'), repsField = document.getElementById('loadtestreps'), rirField = document.getElementById('loadtestrir');
+        if (!weightField || weightField.value === '' || !repsField || repsField.value === '' || !rirField || rirField.value === '') { toast('Enter the labeled load, completed reps, and RIR'); if (weightField && weightField.value === '') weightField.focus(); else if (repsField && repsField.value === '') repsField.focus(); else if (rirField) rirField.focus(); break; }
+        var attempt = { load: L.fromInput(weightField.value, cfg.units), reps: Number(repsField.value), rir: Number(rirField.value), clean: (document.getElementById('loadtestclean') || {}).value !== 'no', pain: (document.getElementById('loadtestpain') || {}).value === 'yes', testedAt: new Date().toISOString() };
+        var result = L.assessLoadTest(loadSlot.ex, attempt, { availableDumbbellsLb: trainingProfile.availableDumbbellsLb });
+        if (!result.valid) { toast(result.message); break; }
+        loadSlot.loadTests = loadSlot.loadTests || []; loadSlot.loadTests.push(Object.assign({}, attempt, { verdict: result.verdict, suggestedLoad: result.suggestedLoad, message: result.message }));
+        loadSlot.loadTestResult = result;
+        if (result.accepted) {
+          loadSlot.pre = { mode: 'calibrated', weight: result.load, repRange: loadSlot.ex.repRange, sets: loadSlot.sets, confidence: 'Guided load test', note: 'Confirmed by a controlled test set at 1–3 RIR.', reason: result.message };
+          loadSlot.recommendedWeight = result.load; loadSlot.loadConfidence = 'Guided load test'; loadSlot.progressionReason = result.message; loadSlot.loadTestOpen = false;
+          loadSlot.log.forEach(function (setItem) { if (!setItem.done && setItem.kind !== 'warmup') setItem.weight = result.load; });
+          var loadDecision = { type: 'load_calibrated', exerciseId: loadSlot.exId, load: result.load, loadMode: loadSlot.ex.loadMode, reasons: ['controlled test set', attempt.reps + ' repetitions', attempt.rir + ' RIR', 'pain-free technique reported'] };
+          SESSION.built.decisionLog.push(loadDecision); decisionLog.push(loadDecision); decisionLog = decisionLog.slice(-100); persist();
+          toast('Starting load confirmed · ' + wLbl(result.load));
+        } else {
+          loadSlot.loadTestDraft = { load: result.suggestedLoad != null ? result.suggestedLoad : attempt.load };
+          toast(result.verdict === 'stop' ? 'Stop this exercise—do not test through pain' : 'Adjust the load and retest after resting');
+        }
+        renderActive(); break;
+      }
       case 'start-set': startSet(+d('data-set')); break;
       case 'end-set': endSet(+d('data-set')); break;
       case 'busy': busy(); break;
