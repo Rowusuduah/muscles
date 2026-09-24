@@ -41,7 +41,7 @@ npm test
 
 The Node test suite covers the existing gym handbook and coaching logic plus Crunch inventory integrity, manual-only safeguards, zone-map metadata, exercise references, and full program-to-equipment coverage.
 
-Installed copies check for a new service worker on launch, when returning to the app, and when connectivity returns. Learn → App updates also provides a manual check and displays the current release.
+Installed copies check for a new service worker on launch, when returning to the app, and when connectivity returns. Service-worker checks bypass the browser's HTTP cache, and a newly installed worker activates immediately so a phone cannot remain stuck behind a hidden update banner. Learn → App updates also provides a manual check and displays the current release.
 
 ## Project structure
 

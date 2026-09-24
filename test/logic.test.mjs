@@ -306,6 +306,7 @@ test('service worker precaches the complete verified shell and uses update-safe 
   assert.match(sw, /howto\.js/);
   assert.match(sw, /networkFirst\(event\.request, 'index\.html'\)/);
   assert.match(sw, /SKIP_WAITING/);
+  assert.match(sw, /install[\s\S]*self\.skipWaiting\(\)/);
   assert.doesNotMatch(sw, /muscles-v1/);
 });
 
@@ -462,7 +463,9 @@ test('installed app exposes explicit update checking and a new versioned cache',
   assert.match(html, /window\.MUSCLES_UPDATES/);
   assert.match(html, /reg\.update\(\)/);
   assert.match(html, /visibilitychange/);
-  assert.match(sw, /2026-09-24-r18/);
+  assert.match(html, /updateViaCache:'none'/);
+  assert.match(app, /2026\.09\.24\.7/);
+  assert.match(sw, /2026-09-24-r19/);
 });
 
 test('motion guide has detailed phases and an exercise-specific plank-drag view', () => {
