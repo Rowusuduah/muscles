@@ -1396,8 +1396,11 @@
     var id = PHOTO_IDS[name];
     return {
       filename:name,
-      number:Number((name.match(/_(\\d{4})/)||[])[1]||0),
+      number:Number((name.match(/_(\d{4})/)||[])[1]||0),
       webp:id ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w1200' : '',
+      // List cards render ~300 CSS px wide; a 480 px thumbnail stays sharp on
+      // phones at a fraction of the 1200 px detail image's download size.
+      thumb:id ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w480' : '',
       alt:alt + ' — ' + name,
       crossReference:false
     };

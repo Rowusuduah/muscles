@@ -3,7 +3,7 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
-  var APP_RELEASE = '2026.09.24.7';
+  var APP_RELEASE = '2026.09.25.1';
   var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
   var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
@@ -922,7 +922,7 @@
       '<div class="eqgrid">' + list.map(function (guide) {
         var nickname = eqNames[guide.id], firstPhoto = (guide.photos || [])[0] || {};
         return '<button class="eqcard verified" data-action="open-eq" data-eq="' + guide.id + '" style="--category:' + guide.categoryColor + '">' +
-          (firstPhoto.webp ? '<img src="' + firstPhoto.webp + '" alt="' + esc(firstPhoto.alt || guide.identity) + '" loading="lazy">' : '<span class="shot ph">NO PHOTO</span>') +
+          (firstPhoto.webp ? '<img src="' + (firstPhoto.thumb || firstPhoto.webp) + '" alt="' + esc(firstPhoto.alt || guide.identity) + '" loading="lazy" decoding="async">' : '<span class="shot ph">NO PHOTO</span>') +
           '<span class="b"><span class="guide-label">' + esc(guide.category) + ' · ' + (guide.autoEligible === false ? 'Manual only' : 'Coach eligible') + '</span><span class="nm">' + esc(guide.identity) + '</span>' +
           (nickname ? '<span class="nickname">“' + esc(nickname) + '”</span>' : '') +
           '<span class="ty">' + esc(guide.evidence.confidence) + ' confidence · ' + (guide.photos || []).length + ' source view' + ((guide.photos || []).length === 1 ? '' : 's') + (guide.zoneId ? ' · ' + esc(guide.zoneId.replace(/-/g, ' ')) : '') + '</span></span></button>';
@@ -1018,7 +1018,7 @@
     var e = equipmentIndex[guide.id], el = document.getElementById('s-equipment');
     var callouts = (guide.callouts || []).map(function (c) { return '<span class="callout ' + (c.x > 65 ? 'left' : '') + '" style="left:' + c.x + '%;top:' + c.y + '%" aria-label="Callout: ' + esc(c.label) + '"><i>' + esc(c.label) + '</i></span>'; }).join('');
     var photos = (guide.photos || []).map(function (photo, index) {
-      return '<figure class="guide-photo"><div class="photo-stage"><img src="' + photo.webp + '" alt="' + esc(photo.alt) + '" loading="lazy">' + (index === 0 ? callouts : '') + '</div><figcaption>' + esc(photo.filename) + (photo.crossReference ? ' · cross-referenced view' : '') + '</figcaption></figure>';
+      return '<figure class="guide-photo"><div class="photo-stage"><img src="' + photo.webp + '" alt="' + esc(photo.alt) + '" loading="lazy" decoding="async">' + (index === 0 ? callouts : '') + '</div><figcaption>' + esc(photo.filename) + (photo.crossReference ? ' · cross-referenced view' : '') + '</figcaption></figure>';
     }).join('');
     var steps = (guide.execution || []).map(function (step) { return '<li><b>' + esc(step.phase) + '</b><span>' + esc(step.instruction) + '</span></li>'; }).join('');
     var checks = (guide.adjustmentsAndChecks || []).map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('');
