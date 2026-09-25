@@ -36,3 +36,13 @@ test('decideSync: ISO strings compare chronologically across day/month/year', ()
   assert.equal(MDRIVE.decideSync('2026-07-31T23:59:59Z', '2026-08-01T00:00:00Z'), 'pull');
   assert.equal(MDRIVE.decideSync('2027-01-01T00:00:00Z', '2026-12-31T23:59:59Z'), 'push');
 });
+
+test('usableToken: reuses a cached token only while comfortably before expiry', () => {
+  const now = Date.parse('2026-09-25T12:00:00Z');
+  assert.equal(MDRIVE.usableToken({ t: 'abc', exp: now + 30 * 60000 }, now), 'abc');
+  assert.equal(MDRIVE.usableToken({ t: 'abc', exp: now + 30000 }, now), null, 'inside the 60 s safety margin');
+  assert.equal(MDRIVE.usableToken({ t: 'abc', exp: now - 1 }, now), null, 'expired');
+  assert.equal(MDRIVE.usableToken(null, now), null);
+  assert.equal(MDRIVE.usableToken({ t: '', exp: now + 3600000 }, now), null);
+  assert.equal(MDRIVE.usableToken({ t: 'abc', exp: 'soon' }, now), null);
+});

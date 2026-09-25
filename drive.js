@@ -21,6 +21,12 @@
   var KEY_FILE      = 'muscles_gdrive_file_id';
   var KEY_CONNECTED = 'muscles_gdrive_ok';
   var KEY_UPDATED   = 'muscles-updated-at';
+  // Faster sign-in: a still-valid access token (Google issues them for ~1 h)
+  // is reused across launches, and the connected account is passed as a
+  // login hint so re-authorisation skips the account chooser.
+  var KEY_TOKEN     = 'muscles_gdrive_token';
+  var KEY_HINT      = 'muscles_gdrive_hint';
+  var TOKEN_MARGIN_MS = 60000;
   var DEBOUNCE_MS   = 3000;
 
   // ---- pure sync decision (unit-tested) -----------------------------------
@@ -34,9 +40,15 @@
     return 'same';
   }
 
+  // A cached token is usable only while it is comfortably before expiry.
+  function usableToken(stored, now) {
+    if (!stored || typeof stored.t !== 'string' || !stored.t || typeof stored.exp !== 'number') return null;
+    return stored.exp - TOKEN_MARGIN_MS > now ? stored.t : null;
+  }
+
   // In a Node/test context there's no browser — expose only the pure bits.
   if (typeof window === 'undefined' || typeof document === 'undefined') {
-    return { decideSync: decideSync, FILENAME: FILENAME, SCOPE: SCOPE };
+    return { decideSync: decideSync, usableToken: usableToken, FILENAME: FILENAME, SCOPE: SCOPE };
   }
 
   // ---- browser state ------------------------------------------------------
@@ -69,6 +81,34 @@
     return JSON.stringify(raw);
   }
 
+  function hint() { try { return localStorage.getItem(KEY_HINT) || ''; } catch (e) { return ''; } }
+  function saveToken(resp) {
+    accessToken = resp.access_token;
+    var seconds = Number(resp.expires_in) || 3600;
+    try { localStorage.setItem(KEY_TOKEN, JSON.stringify({ t: accessToken, exp: Date.now() + seconds * 1000 })); } catch (e) {}
+  }
+  function forgetToken() {
+    accessToken = null;
+    try { localStorage.removeItem(KEY_TOKEN); } catch (e) {}
+  }
+  function restoreToken() {
+    if (accessToken) return true;
+    var stored = null;
+    try { stored = JSON.parse(localStorage.getItem(KEY_TOKEN) || 'null'); } catch (e) {}
+    var token = usableToken(stored, Date.now());
+    if (token) { accessToken = token; return true; }
+    if (stored) forgetToken();
+    return false;
+  }
+  function tokenRequest() { var h = hint(); return h ? { prompt: '', hint: h } : { prompt: '' }; }
+  function rememberAccount() {
+    if (hint()) return;
+    gFetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) { var email = data && data.user && data.user.emailAddress; if (email) try { localStorage.setItem(KEY_HINT, email); } catch (e) {} })
+      .catch(function () {});
+  }
+
   function googleReady() {
     return typeof google !== 'undefined' && google.accounts && google.accounts.oauth2;
   }
@@ -77,22 +117,23 @@
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: SCOPE,
+      hint: hint() || undefined,
       callback: function (resp) {
         if (resp.error) {
           if (!isAutoAuth) setStatus('Sign-in failed: ' + resp.error, true);
           isAutoAuth = false; pendingOp = null; return;
         }
-        accessToken = resp.access_token;
+        saveToken(resp);
         isAutoAuth = false;
         if (pendingOp) { var op = pendingOp; pendingOp = null; op(); }
       }
     });
   }
   function withToken(op) {
+    if (restoreToken()) { op(); return; }
     if (!googleReady()) { setStatus('Google library not loaded — check your connection and reload.', true); return; }
     if (!tokenClient) initClient();
-    if (accessToken) op();
-    else { pendingOp = op; tokenClient.requestAccessToken({ prompt: '' }); }
+    pendingOp = op; tokenClient.requestAccessToken(tokenRequest());
   }
   function silentToken() {
     return new Promise(function (resolve) {
@@ -101,9 +142,9 @@
       tokenClient.callback = function (resp) {
         tokenClient.callback = prev;
         if (resp.error) { resolve(false); return; }
-        accessToken = resp.access_token; resolve(true);
+        saveToken(resp); resolve(true);
       };
-      tokenClient.requestAccessToken({ prompt: '' });
+      tokenClient.requestAccessToken(tokenRequest());
     });
   }
 
@@ -111,7 +152,7 @@
     options = options || {};
     var headers = Object.assign({ Authorization: 'Bearer ' + accessToken }, options.headers || {});
     return fetch(url, Object.assign({}, options, { headers: headers })).then(function (resp) {
-      if (resp.status === 401) { accessToken = null; throw { _status: 401 }; }
+      if (resp.status === 401) { forgetToken(); throw { _status: 401 }; }
       return resp;
     });
   }
@@ -178,6 +219,7 @@
     withToken(function () {
       setStatus('Connecting…');
       markConnected();
+      rememberAccount();
       fetchRemote().then(function (remote) {
         if (!remote) {
           if (!localUpdatedAt()) stampNow();
@@ -217,13 +259,14 @@
     });
   }
   function disconnect() {
-    try { localStorage.removeItem(KEY_CONNECTED); localStorage.removeItem(KEY_FILE); } catch (e) {}
-    accessToken = null;
+    try { localStorage.removeItem(KEY_CONNECTED); localStorage.removeItem(KEY_FILE); localStorage.removeItem(KEY_HINT); } catch (e) {}
+    forgetToken();
     setStatus('Disconnected');
   }
 
   // Debounced background push after local changes (only when connected).
   function runSync() {
+    if (!accessToken) restoreToken();
     if (!accessToken) {
       if (!tokenClient) initClient();
       if (!tokenClient) return Promise.resolve();
@@ -250,9 +293,10 @@
     if (!isConnected()) return;
     var attempts = 0;
     (function tryAuto() {
-      if (!googleReady()) { if (++attempts >= 20) return; setTimeout(tryAuto, 500); return; }
-      if (!tokenClient) initClient();
-      silentToken().then(function (ok) {
+      var cached = restoreToken();
+      if (!cached && !googleReady()) { if (++attempts >= 20) return; setTimeout(tryAuto, 500); return; }
+      if (!cached && !tokenClient) initClient();
+      (cached ? Promise.resolve(true) : silentToken()).then(function (ok) {
         if (!ok) { setStatus('Drive: sign in to sync', true); return; }
         setStatus('Syncing…');
         fetchRemote().then(function (remote) {
@@ -276,6 +320,7 @@
 
   return {
     decideSync: decideSync,
+    usableToken: usableToken,
     isConnected: isConnected,
     status: status,
     setHooks: function (h) { hooks.onStatus = h.onStatus || null; hooks.onLoaded = h.onLoaded || null; },
