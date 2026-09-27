@@ -263,7 +263,7 @@
     } else if (pat === 'incline_press') {
       if (freeBar) { m.ctx = 'benchincline'; m.torso = -44; m.legs = { thigh: [-34, -34], shin: [62, 62] }; }
       else m.ctx = 'seat';
-    } else if (pat === 'vertical_press') { m.ctx = freeBar ? 'stand' : 'seat'; }
+    } else if (pat === 'vertical_press') { m.ctx = freeBar && id !== 'barbell_seated_ohp' ? 'stand' : 'seat'; }
     else if (pat === 'arnold_press') { m.ctx = 'seat'; m.torso = 0; }
     else if (pat === 'pullover') { m.ctx = 'benchflat'; m.torso = -80; m.legs = lieLegs; }
     else if (pat === 'overhead_extension') { m.ctx = 'stand'; }
@@ -273,7 +273,7 @@
     else if (pat === 'fly' || pat === 'rear_fly') { m.ctx = eq === 'cable' ? 'cable' : 'seat'; }
     else if (pat === 'curl') { if (id === 'sel_arm_curl' || id === 'pl_biceps_curl') { m.ctx = 'preacher'; } else if (id === 'incline_db_curl') { m.ctx = 'benchincline'; m.torso = -46; m.impl = 'db'; m.legs = { thigh: [-34, -34], shin: [62, 62] }; } else if (eq === 'cable') m.ctx = 'cable'; else m.ctx = 'stand'; }
     else if (pat === 'tri_ext') { if (eq === 'dumbbell') { m.ctx = 'benchflat'; m.torso = -80; m.impl = 'db'; m.legs = lieLegs; } else m.ctx = 'cable'; }
-    else if (pat === 'tri_press') { m.ctx = id === 'pl_seated_dip' ? 'seat' : 'stand'; }
+    else if (pat === 'tri_press') { m.ctx = id === 'pl_seated_dip' || id === 'machine_seated_dip' ? 'seat' : 'stand'; }
     else if (pat === 'squat') { m.ctx = freeBar && eq !== 'dumbbell' ? 'squat' : 'stand'; }
     else if (pat === 'hinge') { if (id === 'smith_hip_thrust' || id === 'booty_builder_hip_thrust') { m.ctx = 'benchflat'; m.torso = -78; } else if (id === 'back_extension') { m.ctx = 'roman'; } else m.ctx = (eq === 'smith' || eq === 'barbell') ? 'squat' : (eq === 'cable' ? 'cable' : 'stand'); }
     else if (pat === 'lunge') { m.ctx = 'stand'; }

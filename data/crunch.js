@@ -5,7 +5,19 @@
 (function () {
   'use strict';
 
+  /* Google Drive IDs of the original audit photos — kept for provenance only. The app
+     serves its own bundled copies (assets/crunch/img_NNNN.webp) so guides load
+     instantly and fully offline on weak gym Wi-Fi. */
   var PHOTO_IDS = {
+  "IMG_2133.JPG": "1F8lSCPuHCJMuaIwHL-ofro-hycgc3TS-",
+  "IMG_2134.JPG": "1kNu1vOEFMLFYJjxya1kns_6kS-6U-O_E",
+  "IMG_2135.JPG": "1p55o0IK5x1kzJ3IgpKWhId6Bcs6QNvwI",
+  "IMG_2136.JPG": "11lVCwYUvM0KwUbcTHRBDII87qTA0KQ3K",
+  "IMG_2137.JPG": "1RecvQAN6kBX3J6Tuui5aWdRtpI3YZr6h",
+  "IMG_2138.JPG": "1IhEItSDiqji-att3B_g_1ONkpPKeQ9sK",
+  "IMG_2139.JPG": "1Z76cClZgxPL48WfPh4zTXboQS-s0z0Ae",
+  "IMG_2140.JPG": "17_gYOR7HyQkn7FKDzd1C4OGKllL3SDlq",
+  "IMG_2141.JPG": "1p8dKi5VG8iceIazmuL1b7robUN3FZYlB",
   "IMG_2079.JPG": "1dvo4TKWDNdwqmuMRMAUPPX1dv3dJDgvZ",
   "IMG_2080.JPG": "16OfNvUk-NhORot_oAXN128YtWpNaXoNh",
   "IMG_2196.JPG": "1tjxPGqsu3sWURG4_b8Wuh0SyqcNMI4CT",
@@ -1380,27 +1392,141 @@
     "pattern": "Elbow extension",
     "primary": "Triceps",
     "secondary": "Forearms",
-    "ex": [],
+    "ex": [
+      "machine_triceps_extension"
+    ],
     "zone": "selectorized",
     "photos": [
       "IMG_2217.JPG",
       "IMG_2218.JPG"
     ],
     "label": "IMG_2218.JPG",
-    "evidence": "The Hammer Strength plaque explicitly reads TRICEPS EXTENSION. Guide-only because the current exercise library has no exact selectorized triceps-extension movement."
+    "evidence": "The Hammer Strength plaque explicitly reads TRICEPS EXTENSION."
+  },
+  /* 2026-09-27 re-audit: IMG_2133–IMG_2141 were in the 140-photo walk but never
+     assigned to a guide. They show the Olympic barbell bench row. */
+  {
+    "id": "cr-olympic-flat-bench",
+    "name": "Olympic Flat Bench Press",
+    "cat": "Push",
+    "template": "barbellBench",
+    "style": "compound",
+    "pattern": "Horizontal barbell press",
+    "primary": "Chest",
+    "secondary": "Front deltoids and triceps",
+    "ex": [
+      "barbell_bench"
+    ],
+    "zone": "olympic-benches",
+    "photos": [
+      "IMG_2137.JPG",
+      "IMG_2138.JPG"
+    ],
+    "label": "IMG_2137.JPG",
+    "evidence": "Both photographs clearly show a flat Olympic bench with fixed barbell uprights, J-hooks and plate-storage horns.",
+    "confidence": "High"
+  },
+  {
+    "id": "cr-olympic-incline-bench",
+    "name": "Olympic Incline Bench Press",
+    "cat": "Push",
+    "template": "barbellBench",
+    "style": "compound",
+    "pattern": "Incline barbell press",
+    "primary": "Upper chest",
+    "secondary": "Front deltoids and triceps",
+    "ex": [
+      "barbell_incline"
+    ],
+    "zone": "olympic-benches",
+    "photos": [
+      "IMG_2141.JPG",
+      "IMG_2135.JPG",
+      "IMG_2139.JPG",
+      "IMG_2140.JPG"
+    ],
+    "label": "IMG_2141.JPG",
+    "evidence": "The photographs show fixed-incline Olympic benches with a seat, inclined back pad, barbell uprights and plate horns; IMG_2141 also shows the Star Trac spotter platform.",
+    "confidence": "High"
+  },
+  {
+    "id": "cr-olympic-decline-bench",
+    "name": "Olympic Decline Bench Press",
+    "cat": "Push",
+    "template": "barbellBench",
+    "style": "compound",
+    "pattern": "Decline barbell press",
+    "primary": "Lower chest",
+    "secondary": "Triceps and front deltoids",
+    "ex": [
+      "barbell_decline"
+    ],
+    "zone": "olympic-benches",
+    "photos": [
+      "IMG_2136.JPG"
+    ],
+    "label": "IMG_2136.JPG",
+    "evidence": "The photograph clearly shows a decline Olympic bench with leg-roller pads, barbell uprights and plate horns.",
+    "confidence": "High"
+  },
+  {
+    "id": "cr-olympic-military-bench",
+    "name": "Olympic Military (Seated Shoulder Press) Bench",
+    "cat": "Push",
+    "template": "barbellMilitary",
+    "style": "compound",
+    "pattern": "Seated vertical barbell press",
+    "primary": "Front deltoids",
+    "secondary": "Side deltoids and triceps",
+    "ex": [
+      "barbell_seated_ohp"
+    ],
+    "zone": "olympic-benches",
+    "photos": [
+      "IMG_2133.JPG",
+      "IMG_2134.JPG"
+    ],
+    "label": "IMG_2133.JPG",
+    "evidence": "Both photographs show an upright back pad, low seat, foot plates and tall barbell hooks — the Olympic military/seated shoulder-press bench layout. IMG_2133 carries a Star Trac label.",
+    "confidence": "High"
   }
 ];
+
+  /* Every machine must be loggable from its guide. These links cover stations the
+     original audit left guide-only; manual-only stations stay out of automatic
+     programming but can still be logged when the owner chooses them. */
+  var LOG_LINKS = {
+    'cr-hoist-seated-dip':['machine_seated_dip'],
+    'cr-hoist-glute-master':['glute_press_machine'],
+    'cr-star-glute-press':['glute_press_machine'],
+    'cr-abcoaster':['ab_coaster'],
+    'cr-star-adductor':['hip_adduction'],
+    'cr-star-incline-press':['sel_incline_press'],
+    'cr-hammer-pullover':['machine_pullover'],
+    'cr-hs-lateral-raise':['machine_lateral_raise'],
+    'cr-plate-loaded-press-unknown':['pl_shoulder_press'],
+    'cr-plate-loaded-dip-unverified':['pl_seated_dip'],
+    'cr-cardio-cross-trainers':['elliptical_steady'],
+    'cr-cardio-steppers':['stair_climber'],
+    'cr-treadmills':['treadmill_run','treadmill_steady','treadmill_interval']
+  };
+  RAW.forEach(function (item) {
+    var extra = LOG_LINKS[item.id];
+    if (!extra) return;
+    item.ex = Array.from(new Set(extra.concat(item.ex)));
+    if (/Guide-only|guide-only|Guide-only until/.test(item.evidence)) item.evidence = item.evidence.replace(/\s*(It (is|remains) guide-only|Guide-only)[^.]*\./g, '').trim();
+  });
   var COLORS = { Push:'#B86752', Pull:'#557DA4', Legs:'#8A73A6', Core:'#5E9273', 'Full Body':'#9A7B47', Cardio:'#4C8790' };
 
   function photo(name, alt) {
-    var id = PHOTO_IDS[name];
+    // Bundled 560 px WebP copies (~100 KB) are precached by the service worker, so
+    // nothing depends on the gym's Wi-Fi or on a Google Drive round trip.
+    var local = PHOTO_IDS[name] ? 'assets/crunch/' + name.replace(/\.JPG$/i, '').toLowerCase() + '.webp' : '';
     return {
       filename:name,
       number:Number((name.match(/_(\d{4})/)||[])[1]||0),
-      webp:id ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w1200' : '',
-      // List cards render ~300 CSS px wide; a 480 px thumbnail stays sharp on
-      // phones at a fraction of the 1200 px detail image's download size.
-      thumb:id ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w480' : '',
+      webp:local,
+      thumb:local,
       alt:alt + ' — ' + name,
       crossReference:false
     };
@@ -1521,6 +1647,16 @@
       setup:['Choose a machine with clear belt/step/pedal area and familiarize yourself with stop controls.','Begin at an easy pace for 3–5 minutes.','Use handrails for balance when mounting/dismounting, not to artificially support hard work.'],
       exec:[['Start','Build gradually from an easy warm-up.'],['Move','Use a sustainable rhythm appropriate to the day’s goal.'],['Finish','Reduce intensity for a short cool-down before stepping off.']],
       cues:['Build gradually','Conversational easy work','Cool down'],mistakes:[['Starting too hard','Use the first minutes as a warm-up.'],['Hanging on rails','Lower intensity so posture stays natural.'],['Stopping abruptly after hard work','Cool down gradually.']]
+    },
+    barbellBench:{
+      setup:['Lie back with your eyes under the bar and both feet flat; set a comfortable grip slightly wider than the shoulders.','Pinch the shoulder blades back/down and keep the upper back and hips on the pad for every rep.','Learn the path with the empty bar, add plates evenly with collars, and use a spotter for challenging sets.'],
+      exec:[['Start','Unrack with straight arms and bring the bar over the shoulders before the first rep.'],['Move','Lower under control to the chest (higher on incline, lower on decline) with forearms roughly vertical.'],['Finish','Press back up over the shoulders, then walk the bar into both hooks before letting go.']],
+      cues:['Eyes under the bar','Shoulder blades pinned','Both hooks on the re-rack'],mistakes:[['No spotter or safety plan','Keep challenging sets for when a spotter is present; stop 2+ reps before failure when alone.'],['Bouncing the bar off the chest','Touch softly and pause briefly before pressing.'],['Uneven plates or no collars','Load both sides the same and fit collars before unracking.']]
+    },
+    barbellMilitary:{
+      setup:['Sit with the back fully against the upright pad and feet planted on the floor or foot plates.','Set a grip just outside the shoulders so forearms stay vertical under the bar.','Start with the empty bar; add plates evenly with collars once the path feels smooth.'],
+      exec:[['Start','Brace, unrack and hold the bar at upper-chest/chin height with wrists stacked.'],['Move','Press straight up, moving the head slightly back so the bar passes the face.'],['Finish','Lock out overhead without leaning back, lower under control and re-rack on both hooks.']],
+      cues:['Ribs down','Bar close to the face','Wrists stacked'],mistakes:[['Arching away from the pad','Lower the load and keep the whole back on the pad.'],['Bar drifting forward','Press in a straight line and bring the head through at the top.'],['Racking one side first','Guide both sides into the hooks together.']]
     }
   };
 
@@ -1552,7 +1688,7 @@
       callouts:[], muscles:{primary:r.primary,secondary:r.secondary},
       adjustmentsAndChecks:tpl.setup.slice(),
       execution:tpl.exec.map(function(x){return {phase:x[0],instruction:x[1]};}),
-      cues:tpl.cues.slice(), breathing:'Exhale through the hard part of the repetition; inhale during the controlled return. Avoid prolonged breath-holding unless you deliberately use an appropriate brace for a heavy compound set.',
+      cues:tpl.cues.slice(), breathing:(r.style==='cardio'?'Breathe rhythmically. Easy work should let you speak in full sentences; if you cannot, slow down.':'Exhale through the hard part of the repetition; inhale during the controlled return. Avoid prolonged breath-holding unless you deliberately use an appropriate brace for a heavy compound set.'),
       tempo:(r.style==='cardio'?'Smooth sustainable rhythm':'About 1–2 seconds up / 2–3 seconds down unless the exercise calls for another tempo'),
       rangeOfMotion:'Use the largest pain-free range you can control while maintaining the machine alignment and intended joint path.',
       mistakes:tpl.mistakes.map(function(x){return {mistake:x[0],correction:x[1]};}),
@@ -1584,13 +1720,17 @@
   window.CRUNCH_EQUIPMENT=window.CRUNCH_GUIDES.map(function(g){
     return {id:g.id,guideId:g.id,name:g.identity,type:'Crunch Fitness',category:g.category,categoryColor:g.categoryColor,
       photo:g.photos[0]&&g.photos[0].webp,photos:g.photos.map(function(p){return p.webp;}),sourceFiles:g.photos.map(function(p){return p.filename;}),
-      exerciseIds:g.autoEligible?g.linkedExerciseIds.slice():[],confidence:g.evidence.confidence,verified:g.evidence.confidence==='High',
+      // exerciseIds drive automatic coach selection (verified stations only);
+      // logExerciseIds is what the owner may log after choosing this station by hand.
+      exerciseIds:g.autoEligible?g.linkedExerciseIds.slice():[],logExerciseIds:g.linkedExerciseIds.slice(),
+      confidence:g.evidence.confidence,verified:g.evidence.confidence==='High',
       autoEligible:g.autoEligible,zoneId:g.zoneId,gymId:'crunch'};
   });
   // Observed free floor/turf makes bodyweight work available even though it is not a machine guide.
   window.CRUNCH_EQUIPMENT.push({id:'cr-bodyweight-space',name:'Open floor / turf space',type:'Training area',category:'Full Body',
     photo:(window.CRUNCH_GUIDES.filter(function(g){return g.id==='cr-plate-loaded-dip-unverified';})[0]||{photos:[]}).photos[0]?.webp||'',
     photos:[],sourceFiles:['IMG_2179.JPG'],exerciseIds:['pushup','plank','dead_bug','russian_twist','lying_leg_raise','walking_lunge','bulgarian_split'],
+    logExerciseIds:['pushup','plank','dead_bug','russian_twist','lying_leg_raise','walking_lunge','bulgarian_split'],
     confidence:'Observed',verified:true,autoEligible:true,zoneId:'free-weights',gymId:'crunch'});
 
   window.CRUNCH_MAP={
@@ -1601,9 +1741,10 @@
       {id:'rocit',name:'Hoist / selectorized row',order:1,ranges:['2079–2104','2202–2213'],note:'Hoist ROC-IT cluster plus Hammer Strength chest press; revisited near the end of the photo walk.'},
       {id:'selectorized',name:'Selectorized strength',order:2,ranges:['2105–2127','2180–2201','2217–2218'],note:'Star Trac, Nautilus and Hammer Strength pin-loaded stations.'},
       {id:'cable-smith',name:'Cable + Smith',order:3,ranges:['2128–2131','2142–2144'],note:'Functional trainers / dual adjustable pulleys and Smith station.'},
-      {id:'plate-loaded',name:'Plate-loaded strength',order:4,ranges:['2132–2169','2179'],note:'Hammer Strength, Star Trac and Nautilus leverage/plate-loaded stations. Unverified pieces are excluded from automatic programming.'},
-      {id:'free-weights',name:'Free weights + benches',order:5,ranges:['2170–2178'],note:'Preacher bench, fixed bars, dumbbells, utility benches and seated calf.'},
-      {id:'cardio',name:'Cardio row',order:6,ranges:['2214–2216'],note:'Cross-trainer/elliptical-style row, steppers/stair climbers and treadmills.'}
+      {id:'olympic-benches',name:'Olympic bench row',order:4,ranges:['2133–2141'],note:'Flat, incline and decline barbell benches plus the seated military bench, beside the Smith/cable area.'},
+      {id:'plate-loaded',name:'Plate-loaded strength',order:5,ranges:['2132','2145–2169','2179'],note:'Hammer Strength, Star Trac and Nautilus leverage/plate-loaded stations. Unverified pieces are excluded from automatic programming.'},
+      {id:'free-weights',name:'Free weights + benches',order:6,ranges:['2170–2178'],note:'Preacher bench, fixed bars, dumbbells, utility benches and seated calf.'},
+      {id:'cardio',name:'Cardio row',order:7,ranges:['2214–2216'],note:'Cross-trainer/elliptical-style row, steppers/stair climbers and treadmills.'}
     ]
   };
   window.CRUNCH_GYM={id:'crunch',name:'Crunch Fitness',guideCount:window.CRUNCH_GUIDES.length,photoCount:140,map:window.CRUNCH_MAP};

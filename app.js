@@ -3,7 +3,7 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
-  var APP_RELEASE = '2026.09.25.1';
+  var APP_RELEASE = '2026.09.27.1';
   var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
   var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
@@ -56,7 +56,13 @@
     try {
       var saved = JSON.parse(localStorage.getItem(WALKIN_DRAFT_KEY) || 'null');
       if (!saved || !saved.session || saved.session.mode !== 'walkin' || !saved.session.built || !Array.isArray(saved.session.built.slots) || !saved.session.built.slots.length) return;
-      saved.session.built.slots = saved.session.built.slots.filter(function (slot) { slot.ex = EX[slot.exId]; return !!slot.ex; });
+      saved.session.built.slots = saved.session.built.slots.filter(function (slot) {
+        var source = EX[slot.exId];
+        // Cardio slots are logged in minutes; rebuild that wrapper so a restored
+        // treadmill run does not come back as a reps-and-weight set.
+        slot.ex = source && source.role === 'cardio' ? L.buildCustom([slot.exId], EX, null, '').slots[0].ex : source;
+        return !!slot.ex;
+      });
       if (!saved.session.built.slots.length) { clearWalkinDraft(); return; }
       SESSION = saved.session; SESSION.phase = SESSION.phase === 'summary' ? 'summary' : 'active'; SESSION._rest = null;
       if (saved.gymId === 'home' || saved.gymId === 'crunch') cfg.gymId = saved.gymId;
@@ -77,9 +83,22 @@
   function activeGuides() { return cfg && cfg.gymId === 'crunch' && window.CRUNCH_GUIDES ? window.CRUNCH_GUIDES : HOME_GUIDES; }
   function activeGymName() { return cfg && cfg.gymId === 'crunch' ? 'Crunch Fitness' : 'Original gym'; }
   function gymConfirmedToday() { return cfg && cfg.gymConfirmedOn === todayISO(); }
-  function applyGymTheme() { document.documentElement.setAttribute('data-gym', cfg && cfg.gymId === 'crunch' ? 'crunch' : 'home'); }
+  function applyGymTheme() { document.documentElement.setAttribute('data-gym', cfg && cfg.gymId === 'crunch' ? 'crunch' : 'home'); refreshGymAvailability(); }
   function zoneName(zoneId) { var zone = window.CRUNCH_MAP && window.CRUNCH_MAP.zones.filter(function (z) { return z.id === zoneId; })[0]; return zone ? zone.name : String(zoneId || 'Unmapped').replace(/-/g, ' '); }
   function machinesForEx(exId) { return activeEquipment().filter(function (e) { return (e.exerciseIds || []).indexOf(exId) >= 0; }); }
+  // Stations the owner may log by hand. Includes manual-only stations (Smith,
+  // functional trainers, unlabelled plate-loaded pieces) that the coach never auto-picks.
+  function logIdsFor(machine) { return (machine && (machine.logExerciseIds || machine.exerciseIds)) || []; }
+  function logMachinesForEx(exId) { return activeEquipment().filter(function (e) { return logIdsFor(e).indexOf(exId) >= 0; }); }
+  // The owner picked the station, so the coach sees every movement it can log.
+  function walkinEquipment() { return activeEquipment().map(function (e) { return Object.assign({}, e, { exerciseIds: logIdsFor(e), autoEligible: true }); }); }
+  // Legacy-deprecated machine exercises (e.g. selectorized chest press) are real
+  // stations at Crunch; make them available whenever the active gym has one.
+  function refreshGymAvailability() {
+    EXERCISES.forEach(function (exercise) {
+      if (exercise.deprecated) exercise.availability = machinesForEx(exercise.id).length > 0;
+    });
+  }
   function chooseMachineForExercise(exId, preferredZone) {
     return L.selectEquipmentForExercise(exId, activeEquipment(), log, preferredZone);
   }
@@ -334,20 +353,20 @@
   }
   function selectWalkinMachine(slot, machineId) {
     var machine = L.byId(activeEquipment())[machineId];
-    if (!machine || (machine.exerciseIds || []).indexOf(slot.exId) < 0) return false;
+    if (!machine || logIdsFor(machine).indexOf(slot.exId) < 0) return false;
     slot.machineId = machine.id; slot.zoneId = machine.zoneId || slot.zoneId;
     slot.machineChoiceReason = 'Selected directly from the verified Equipment guide during this gym visit.';
     return true;
   }
   function useEquipment(exId, machineId) {
     var ex = EX[exId];
-    if (!ex || !L.byId(machinesForEx(exId))[machineId]) { toast('That exercise is not mapped to this equipment'); return; }
+    if (!ex || !L.byId(logMachinesForEx(exId))[machineId]) { toast('That exercise is not mapped to this equipment'); return; }
     if (SESSION && SESSION.mode !== 'walkin') { toast('Finish or save the current workout before starting an equipment-led visit'); return; }
     if (!SESSION) {
-      var built = L.buildCustom([exId], EX, null, 'Open gym visit · with friends');
+      var built = L.buildCustom([exId], EX, null, 'Gym visit');
       built.mode = 'walkin'; built.dayId = 'walkin';
       built.reasonSelected = 'You chose verified equipment as you moved through the gym.';
-      built = prepBuilt(COACH.enhanceWorkout(built, { EX: EX, equipment: activeEquipment(), profile: trainingProfile, log: log, readiness: null }));
+      built = prepBuilt(COACH.enhanceWorkout(built, { EX: EX, equipment: walkinEquipment(), profile: trainingProfile, log: log, readiness: null }));
       SESSION = { mode: 'walkin', phase: 'active', built: built, idx: 0, budgetMin: null, startedAt: Date.now(), gymId: cfg.gymId };
       selectWalkinMachine(SESSION.built.slots[0], machineId);
       SESSION.built.decisionLog.push({ type: 'equipment_visit_selected', exerciseId: exId, machineId: machineId, reasons: ['selected from Equipment', 'friend-led open gym visit'] });
@@ -364,7 +383,7 @@
         SESSION.idx = existingIndex;
       } else {
         var addition = L.buildCustom([exId], EX, null, SESSION.built.name); addition.mode = 'walkin';
-        addition = prepBuilt(COACH.enhanceWorkout(addition, { EX: EX, equipment: activeEquipment(), profile: trainingProfile, log: log, readiness: null }));
+        addition = prepBuilt(COACH.enhanceWorkout(addition, { EX: EX, equipment: walkinEquipment(), profile: trainingProfile, log: log, readiness: null }));
         var slot = addition.slots[0]; selectWalkinMachine(slot, machineId);
         SESSION.built.slots.push(slot); SESSION.idx = SESSION.built.slots.length - 1;
         SESSION.built.decisionLog.push({ type: 'equipment_visit_selected', exerciseId: exId, machineId: machineId, reasons: ['selected from Equipment', 'added to current gym visit'] });
@@ -396,7 +415,7 @@
       // Every session is constrained to equipment mapped at today's selected gym.
       // If a programmed exercise is unavailable, preserve the role/sets and use the first
       // verified program alternative rather than inventing equipment.
-      if (!machinesForEx(s.exId).length) {
+      if (!machinesForEx(s.exId).length && !(built.mode === 'walkin' && logMachinesForEx(s.exId).length)) {
         var replacement = (s.alt || []).filter(function (id) { return EX[id] && machinesForEx(id).length; })[0];
         if (replacement) {
           s.gymSwapFrom = s.exId;
@@ -456,15 +475,32 @@
   /* ---------- ACTIVE session (timed logging + how-to) ---------- */
   function sessionProgress() { var done = 0, total = 0; SESSION.built.slots.forEach(function (s) { s.log.forEach(function (x) { if (x.kind === 'warmup') return; total++; if (x.done) done++; }); }); return { done: done, total: total }; }
 
+  // Beginner-first plans for the cardio stations; minutes are the only required log.
+  function cardioPlan(ex) {
+    if (ex.id === 'treadmill_run') return { title: 'Run / walk plan', steps: ['5 min brisk walk to warm up', '6 rounds: 1 min easy jog + 2 min walk', '3–5 min easy walk to cool down'], next: 'Next time add one round or 15 s of jogging per round — not both.' };
+    if (ex.id === 'treadmill_interval') return { title: 'Interval plan', steps: ['5 min easy warm-up', '6–8 rounds: 1 min hard (8/10) + 2 min easy', '3–5 min cool-down'], next: 'Keep hard efforts controlled; stop the set if form breaks.' };
+    return { title: 'Easy steady plan', steps: ['3–5 min very easy start', '10–25 min at a pace you can talk in full sentences', '2–3 min easy finish'], next: 'Build minutes first, then speed, incline or level.' };
+  }
+  function lastCardioHtml(exId) {
+    var dates = Object.keys(log).sort().reverse();
+    for (var d = 0; d < dates.length; d++) {
+      var day = log[dates[d]], sessions = day.sessions || [day];
+      for (var k = sessions.length - 1; k >= 0; k--) {
+        var item = (sessions[k].exercises || []).filter(function (e) { return e.exId === exId && e.sets && e.sets.length; })[0];
+        if (item) return '<div class="last-performance"><span class="eyebrow">Last time · ' + esc(dates[d]) + '</span><b>' + item.sets.map(function (set) { return cardioSummary(set); }).join(' + ') + '</b></div>';
+      }
+    }
+    return '';
+  }
   function renderActive() {
     clearInterval(workInt); clearInterval(restInt);
     var el = document.getElementById('s-today'), b = SESSION.built, s = b.slots[SESSION.idx];
     var mark = focusMark(b.focusMuscles, b.slots); var pr = sessionProgress();
     var pips = ''; for (var i = 0; i < Math.min(pr.total, 26); i++) pips += '<span class="pip' + (i < pr.done ? ' on' : '') + '"></span>';
-    var machines = machinesForEx(s.exId); var machSel = L.byId(machines)[s.machineId] || machines[0];
     var isWalkin = SESSION.mode === 'walkin';
+    var machines = isWalkin ? logMachinesForEx(s.exId) : machinesForEx(s.exId); var machSel = L.byId(machines)[s.machineId] || machines[0];
     var isPartner = SESSION.mode === 'partner' || isWalkin;
-    var ex = s.ex;
+    var ex = s.ex, isCardio = ex.role === 'cardio';
     var lastHistory = COACH.historyFor(log, s.exId, 1)[0];
     var sameZoneAhead = 0; for (var zi = SESSION.idx; zi < b.slots.length && b.slots[zi].zoneId === s.zoneId; zi++) sameZoneAhead++;
     var locationCue = s.zoneId && s.zoneId !== 'unmapped' ? '<div class="location-cue"><b>' + esc(zoneName(s.zoneId)) + '</b><span>' + (sameZoneAhead > 1 ? 'Next ' + sameZoneAhead + ' exercises stay here.' : 'Current equipment zone.') + '</span></div>' : '';
@@ -472,7 +508,7 @@
     var gymSwapNote = s.gymSwapFrom ? '<div class="coach-suggest"><span>Crunch availability swap: <b>' + esc(EX[s.gymSwapFrom] ? EX[s.gymSwapFrom].name : s.gymSwapFrom) + '</b> → <b>' + esc(ex.name) + '</b>.</span></div>' : '';
     var picker = machines.length && isPartner ? '<div class="picker"><div class="lab">' + (isWalkin ? 'Equipment selected for this gym visit' : 'Partner-led equipment choice') + '</div><div class="machopts">' +
       machines.map(function (m) { return '<button class="macho ' + (m.id === s.machineId ? 'sel' : '') + '" data-action="pick-machine" data-machine="' + m.id + '" aria-pressed="' + (m.id === s.machineId) + '"><img src="' + m.photo + '" alt="' + esc(m.name) + '"><span class="nm">' + esc(m.name) + (cfg.gymId === 'crunch' && m.zoneId ? '<small>Zone · ' + esc(m.zoneId.replace(/-/g, ' ')) + '</small>' : '') + '</span></button>'; }).join('') + '</div>' +
-      (machSel ? '<label class="fieldlabel compact" for="machinesetting">Machine setting <span>seat, pin or pad position</span></label><input class="search compact" id="machinesetting" data-machine-setting="' + esc(machSel.id) + '" value="' + esc(machineSettings[machSel.id] || '') + '" placeholder="Example: seat 4">' : '') +
+      (machSel && !isCardio ? '<label class="fieldlabel compact" for="machinesetting">Machine setting <span>seat, pin or pad position</span></label><input class="search compact" id="machinesetting" data-machine-setting="' + esc(machSel.id) + '" value="' + esc(machineSettings[machSel.id] || '') + '" placeholder="Example: seat 4">' : '') +
       multiUse(machSel, s) + '</div>' : (machSel ? '<section class="coach-machine"><div><span class="eyebrow">Coach chose your equipment</span><b>' + esc(nameOf(machSel)) + '</b><small>' + esc(s.machineChoiceReason || 'Verified for this exercise.') + (machSel.zoneId ? ' Go to ' + esc(zoneName(machSel.zoneId)) + '.' : '') + '</small></div>' +
         (cfg.gymId === 'crunch' ? '<button type="button" class="mini" data-action="toggle-session-map" aria-expanded="' + (!!SESSION.showMap) + '">' + (SESSION.showMap ? 'Hide map' : 'Show on map') + '</button>' : '') +
         '<label class="fieldlabel compact" for="machinesetting">Your saved machine setting <span>seat, pin or pad position</span></label><input class="search compact" id="machinesetting" data-machine-setting="' + esc(machSel.id) + '" value="' + esc(machineSettings[machSel.id] || '') + '" placeholder="Example: seat 4"></section>' : '');
@@ -481,7 +517,13 @@
     var repUnit = ex.measure === 'duration' ? ' sec' : '';
     var lastPerformance = ex.role !== 'cardio' && lastHistory ? '<div class="last-performance"><span class="eyebrow">Last performance</span><b>' + esc(wLbl(lastHistory.weight) + (ex.loadMode === 'perHand' ? '/hand' : '')) + '</b><span>' + esc(lastHistory.reps.join(', ')) + (lastHistory.avgRIR != null ? (ex.measure === 'duration' ? ' sec' : ' reps') + ' · ~' + lastHistory.avgRIR.toFixed(1) + ' RIR' : (ex.measure === 'duration' ? ' sec' : ' reps')) + '</span></div>' : '';
     var targetCopy = ex.measure === 'minutes' ? ex.repRange[0] + '–' + ex.repRange[1] + ' minutes · record effort 1–10' : s.sets + ' × ' + ex.repRange[0] + '–' + ex.repRange[1] + repUnit + ' · ' + tgt + ' · ' + ex.defaultRIR + ' RIR';
-    var target = '<div class="target"><span class="t">' + targetCopy + '</span><span class="note">' + esc(s.pre.note) + '</span>' + (s.pre.reason ? '<button class="why-button" type="button" data-action="toggle-why">Why?</button><p class="why-copy hidden">' + esc(s.pre.reason) + '</p>' : '') + '</div>' + lastPerformance +
+    if (isCardio) {
+      var plan = cardioPlan(ex);
+      targetCopy = 'Log minutes · distance, speed & effort optional';
+    }
+    var target = isCardio
+      ? '<section class="cardio-plan"><span class="eyebrow">' + esc(plan.title) + '</span><ol>' + plan.steps.map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol><small>' + esc(plan.next) + '</small><p class="t">' + targetCopy + '</p></section>' + lastCardioHtml(s.exId)
+      : '<div class="target"><span class="t">' + targetCopy + '</span><span class="note">' + esc(s.pre.note) + '</span>' + (s.pre.reason ? '<button class="why-button" type="button" data-action="toggle-why">Why?</button><p class="why-copy hidden">' + esc(s.pre.reason) + '</p>' : '') + '</div>' + lastPerformance +
       (s.pre.mode === 'reduce_suggested' ? '<div class="coach-suggest"><span>Repeated misses, not one bad day. Reduction is optional.</span><button class="mini" data-action="accept-reduction">Use ' + wLbl(s.pre.suggestedWeight) + '</button></div>' : '');
 
     target += gymSwapNote;
@@ -497,11 +539,11 @@
       '<div class="meter"><div class="pips">' + pips + '</div><span class="n">' + pr.done + ' / ' + pr.total + ' sets</span></div>' +
       '<div class="card active slot fade"><div class="chead">' + shot(machSel) +
         '<div><div class="cnum">' + String(SESSION.idx + 1).padStart(2, '0') + ' / ' + b.slots.length + ' · ' + s.role.toUpperCase() + '</div>' +
-        '<div class="cname">' + esc(ex.name) + '</div><div class="ctag">Target: ' + esc(MU[s.target] ? MU[s.target].name : s.target) + '</div></div>' +
+        '<div class="cname">' + esc(ex.name) + '</div><div class="ctag">' + (isCardio ? 'Cardio' + (machSel ? ' · ' + esc(nameOf(machSel)) : '') : 'Target: ' + esc(MU[s.target] ? MU[s.target].name : s.target)) + '</div></div>' +
         '<button class="howbtn" data-action="toggle-how" style="margin-left:auto;align-self:flex-start">' + (s.showHow ? 'Hide' : 'How ▸') + '</button></div>' +
         locationCue + picker + crunchTrainingMapHtml(s.zoneId) + target + loadTestPanel(s, ex) + (s.liveAdvice ? '<div class="coach-suggest"><span>' + esc(s.liveAdvice.message) + '</span></div>' : '') + how +
         ((ex.settings || []).length ? '<label class="fieldlabel compact" for="exsetting">Exercise setting <span>' + esc(ex.settings.join(' · ')) + '</span></label><input class="search compact" id="exsetting" data-exercise-setting="' + esc(ex.id) + '" value="' + esc(trainingProfile.exerciseSettings[ex.id] || '') + '" placeholder="Example: bench notch 3 · neutral grip">' : '') +
-        '<div class="note-field"><label class="fieldlabel" for="technote">Pain-free technique note <span>optional</span></label><input id="technote" class="search compact" data-technique-note value="' + esc(s.techniqueNote || '') + '" placeholder="Settings, comfort, or a cue that helped"></div>' +
+        (isCardio ? '' : '<div class="note-field"><label class="fieldlabel" for="technote">Pain-free technique note <span>optional</span></label><input id="technote" class="search compact" data-technique-note value="' + esc(s.techniqueNote || '') + '" placeholder="Settings, comfort, or a cue that helped"></div>') +
         '<div class="sets">' + rows + '</div>' +
         '<div class="cfoot"><span class="cue"><b>Cue:</b> ' + esc(ex.cues[0]) + '</span>' + (SESSION._rest ? '<span class="rest run" id="rest-clock">Rest ' + fmtDur(SESSION._rest.left) + '</span>' : '') +
         (ex.role !== 'cardio' ? '<button class="mini" data-action="add-warmup">+ Warm-up</button>' : '') +
@@ -538,6 +580,25 @@
   function setNumber(s, i) { var n = 0; for (var j = 0; j <= i; j++) if (s.log[j].kind !== 'warmup') n++; return n; }
   function slabFor(x, s, i) { return x.kind === 'warmup' ? 'WARM' : (s.ex && s.ex.measure === 'minutes' ? 'CARDIO' : 'SET ' + setNumber(s, i)); }
   function shortName(ex) { return ex ? ex.name.split(' ')[0] : ''; }
+  function fld(label, input) { return '<label class="fld"><span>' + esc(label) + '</span>' + input + '</label>'; }
+  function distUnit() { return cfg.units === 'kg' ? 'km' : 'mi'; }
+  function speedUnit() { return cfg.units === 'kg' ? 'km/h' : 'mph'; }
+  // Which optional cardio details make sense for this machine.
+  function cardioFields(ex) {
+    var id = ex && ex.id || '';
+    if (/^treadmill/.test(id)) return ['distance', 'speed', 'incline'];
+    if (id === 'stair_climber') return ['level'];
+    return ['distance', 'level'];
+  }
+  function cardioSummary(x) {
+    var unit = x.distanceUnit || distUnit(), parts = [x.minutes + ' <span class="u">min</span>'];
+    if (x.distance != null) parts.push(x.distance + ' <span class="u">' + esc(unit) + '</span>');
+    if (x.speed != null) parts.push(x.speed + ' <span class="u">' + esc(unit === 'km' ? 'km/h' : 'mph') + '</span>');
+    if (x.incline != null) parts.push(x.incline + '<span class="u">% incline</span>');
+    if (x.level != null) parts.push('<span class="u">level</span> ' + x.level);
+    if (x.effort != null) parts.push('<span class="u">effort</span> ' + x.effort + '/10');
+    return parts.join(' · ');
+  }
   function loadLabel(ex) {
     return { perSide: 'per side', perHand: 'per hand', stack: 'stack', assistance: 'assistance', total: 'total load', bodyweight: 'added load' }[ex.loadMode] || 'load';
   }
@@ -553,15 +614,24 @@
       return '<div class="subin unilateral-input">' + sideRow('L', 'l', left) + sideRow('R', 'r', right) + '<span class="x">' + cfg.units + ' per hand</span></div>';
     }
     if (!superEx && ex.measure === 'minutes') {
-      return '<div class="subin"><input type="number" min="1" inputmode="numeric" aria-label="Cardio duration in minutes" placeholder="min" value="' + (x.minutes != null ? x.minutes : '') + '" data-set="' + i + '" data-f="duration"><span class="x">minutes</span><input type="number" min="1" max="10" inputmode="numeric" aria-label="Average cardio effort from 1 to 10" placeholder="effort" value="' + (x.effort != null ? x.effort : '') + '" data-set="' + i + '" data-f="effort"><span class="x">/10</span></div>';
+      var optional = cardioFields(ex).map(function (field) {
+        if (field === 'distance') return fld('Distance ' + distUnit(), '<input type="number" min="0" step="0.01" inputmode="decimal" aria-label="Distance in ' + distUnit() + ', optional" placeholder="opt." value="' + (x.distance != null ? x.distance : '') + '" data-set="' + i + '" data-f="distance">');
+        if (field === 'speed') return fld('Speed ' + speedUnit(), '<input type="number" min="0" step="0.1" inputmode="decimal" aria-label="Average speed in ' + speedUnit() + ', optional" placeholder="opt." value="' + (x.speed != null ? x.speed : '') + '" data-set="' + i + '" data-f="speed">');
+        if (field === 'incline') return fld('Incline %', '<input type="number" min="0" max="30" step="0.5" inputmode="decimal" aria-label="Incline percent, optional" placeholder="opt." value="' + (x.incline != null ? x.incline : '') + '" data-set="' + i + '" data-f="incline">');
+        return fld('Level', '<input type="number" min="1" max="30" inputmode="numeric" aria-label="Machine level, optional" placeholder="opt." value="' + (x.level != null ? x.level : '') + '" data-set="' + i + '" data-f="level">');
+      }).join('');
+      return '<div class="subin cardio-in">' +
+        fld('Minutes', '<input type="number" min="1" inputmode="numeric" aria-label="Cardio duration in minutes" placeholder="min" value="' + (x.minutes != null ? x.minutes : '') + '" data-set="' + i + '" data-f="duration">') +
+        optional +
+        fld('Effort /10', '<input type="number" min="1" max="10" inputmode="numeric" aria-label="Average cardio effort from 1 to 10" placeholder="1–10" value="' + (x.effort != null ? x.effort : '') + '" data-set="' + i + '" data-f="effort">') + '</div>';
     }
     if (!superEx && ex.measure === 'duration' && x.kind !== 'warmup') {
       return '<div class="subin"><input type="number" inputmode="numeric" aria-label="Duration in seconds" placeholder="sec" value="' + (x.durationSec != null ? x.durationSec : '') + '" data-set="' + i + '" data-f="duration"><input type="number" inputmode="decimal" aria-label="Weight per hand in ' + cfg.units + '" placeholder="load" value="' + wD + '" data-set="' + i + '" data-f="weight"><span class="x">' + cfg.units + ' ' + esc(loadLabel(ex)) + '</span><input type="number" inputmode="decimal" aria-label="Optional distance" placeholder="distance" value="' + (x.distance != null ? x.distance : '') + '" data-set="' + i + '" data-f="distance"><input class="rir" type="number" min="0" max="5" inputmode="numeric" aria-label="Repetitions in reserve" placeholder="RIR" value="' + (x.rir != null ? x.rir : '') + '" data-set="' + i + '" data-f="rir"></div>';
     }
-    var A = '<div class="subin">' + (superEx ? '<span class="subnm">' + esc(shortName(ex)) + '</span>' : '') +
-      '<input type="number" inputmode="numeric" aria-label="Repetitions" placeholder="reps" value="' + (x.reps != null ? x.reps : '') + '" data-set="' + i + '" data-f="reps">' +
-      '<input type="number" inputmode="decimal" aria-label="' + esc(loadLabel(ex)) + ' in ' + cfg.units + '" placeholder="load" value="' + wD + '" data-set="' + i + '" data-f="weight"><span class="x">' + cfg.units + ' ' + esc(loadLabel(ex)) + '</span>' +
-      (x.kind === 'warmup' ? '' : '<input class="rir" type="number" min="0" max="5" inputmode="numeric" aria-label="Repetitions in reserve" placeholder="RIR" value="' + (x.rir != null ? x.rir : '') + '" data-set="' + i + '" data-f="rir">') + '</div>';
+    var A = '<div class="subin labeled">' + (superEx ? '<span class="subnm">' + esc(shortName(ex)) + '</span>' : '') +
+      fld('Reps', '<input type="number" inputmode="numeric" aria-label="Repetitions" placeholder="reps" value="' + (x.reps != null ? x.reps : '') + '" data-set="' + i + '" data-f="reps">') +
+      fld(cfg.units + ' ' + loadLabel(ex), '<input type="number" inputmode="decimal" aria-label="' + esc(loadLabel(ex)) + ' in ' + cfg.units + '" placeholder="load" value="' + wD + '" data-set="' + i + '" data-f="weight">') +
+      (x.kind === 'warmup' ? '' : fld('RIR', '<input class="rir" type="number" min="0" max="5" inputmode="numeric" aria-label="Repetitions in reserve: clean reps you could still do" placeholder="0–5" value="' + (x.rir != null ? x.rir : '') + '" data-set="' + i + '" data-f="rir">')) + '</div>';
     if (!superEx) return A;
     var b = x.b || {}; var bw = b.weight != null ? L.toDisplay(b.weight, cfg.units) : '';
     var B = '<div class="subin"><span class="subnm">' + esc(shortName(EX[superEx])) + '</span>' +
@@ -574,8 +644,8 @@
     if (x.done) {
       var reps = x.clusters && x.clusters.length > 1 ? x.clusters.join('+') : x.reps;
       var sideSummary = x.sides ? ('L ' + x.sides.left.reps + '×' + L.toDisplay(x.sides.left.weight, cfg.units) + ' · R ' + x.sides.right.reps + '×' + L.toDisplay(x.sides.right.weight, cfg.units)) : null;
-      var measured = ex.measure === 'minutes' ? (x.minutes + ' <span class="u">min</span>' + (x.effort != null ? ' · effort ' + x.effort + '/10' : '')) : (ex.measure === 'duration' ? ((x.durationSec || reps) + ' <span class="u">sec</span>' + (x.distance != null ? ' · ' + x.distance + ' <span class="u">distance</span>' : '') + ' · ' + L.toDisplay(x.weight, cfg.units)) : (reps + ' <span class="u">reps</span> · ' + L.toDisplay(x.weight, cfg.units)));
-      var main = '<span class="slab">' + no + '</span><span class="setsummary">' + (sideSummary || measured) + ' <span class="u">' + cfg.units + (ex.loadMode === 'perHand' ? '/hand' : '') + '</span>';
+      var measured = ex.measure === 'minutes' ? cardioSummary(x) : (ex.measure === 'duration' ? ((x.durationSec || reps) + ' <span class="u">sec</span>' + (x.distance != null ? ' · ' + x.distance + ' <span class="u">distance</span>' : '') + ' · ' + L.toDisplay(x.weight, cfg.units)) : (reps + ' <span class="u">reps</span> · ' + L.toDisplay(x.weight, cfg.units)));
+      var main = '<span class="slab">' + no + '</span><span class="setsummary">' + (sideSummary || measured) + (ex.measure === 'minutes' ? '' : ' <span class="u">' + cfg.units + (ex.loadMode === 'perHand' ? '/hand' : '') + '</span>');
       if (s.superEx && x.b && x.b.reps) main += ' <span class="u">+</span> ' + esc(shortName(EX[s.superEx])) + ' ' + x.b.reps + '×' + L.toDisplay(x.b.weight || 0, cfg.units);
       if (x.durSec) main += '<span class="dur">⏱ ' + fmtDur(x.durSec) + '</span>';
       main += '</span>';
@@ -585,7 +655,7 @@
       return '<div class="setrow done2">' + main + rp + '<span class="tick done" style="margin-left:auto"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span></div>';
     }
     if (x.running) {
-      return '<div class="setrow run ' + (s.superEx ? 'col' : '') + '"><span class="slab">' + no + '</span>' + subInputs(x, i, ex, s.superEx) +
+      return '<div class="setrow run ' + (s.superEx || ex.measure === 'minutes' ? 'col' : '') + '"><span class="slab">' + no + '</span>' + subInputs(x, i, ex, s.superEx) +
         '<button class="endbtn" data-action="end-set" data-set="' + i + '">End <span class="tmr" id="tmr-' + i + '">0s</span></button></div>';
     }
     var firstIdle = s.log.findIndex(function (y) { return !y.done && !y.running; });
@@ -665,7 +735,13 @@
       s.log[i].reps = reps; s.log[i].clusters = [reps];
       if (s.ex.measure === 'minutes') { s.log[i].minutes = reps; s.log[i].durationSec = reps * 60; s.log[i].weight = 0; if (effortIn && effortIn.value !== '') s.log[i].effort = Math.max(1, Math.min(10, parseInt(effortIn.value, 10))); }
       else if (durationIn) s.log[i].durationSec = reps;
-      if (distanceIn && distanceIn.value !== '') s.log[i].distance = Number(distanceIn.value);
+      if (distanceIn && distanceIn.value !== '') { s.log[i].distance = Number(distanceIn.value); if (s.ex.measure === 'minutes') s.log[i].distanceUnit = distUnit(); }
+      if (s.ex.measure === 'minutes') {
+        ['speed', 'incline', 'level'].forEach(function (field) {
+          var input = document.querySelector('#s-today input[data-set="' + i + '"][data-f="' + field + '"]');
+          if (input && input.value !== '' && isFinite(Number(input.value))) s.log[i][field] = Number(input.value);
+        });
+      }
       if (s.ex.measure !== 'minutes' && wIn && wIn.value !== '') s.log[i].weight = L.fromInput(wIn.value, cfg.units);
       if (rirIn && rirIn.value !== '') s.log[i].rir = Math.max(0, Math.min(5, parseInt(rirIn.value, 10)));
     }
@@ -679,7 +755,7 @@
     s.log[i].done = true; s.log[i].running = false;
     for (var j = i + 1; j < s.log.length; j++) if (!s.log[j].done) { s.log[j].weight = s.log[i].weight; if (s.superEx && s.log[i].b) s.log[j].b = { reps: null, weight: s.log[i].b.weight }; }
     var allDone = s.log.every(function (y) { return y.done; });
-    s.liveAdvice = COACH.liveSetAdvice(s.ex, { repRange: s.ex.repRange, sets: s.sets }, s.log.filter(function (set) { return set.kind !== 'warmup' && set.done; }), s.log[i].restBeforeSec);
+    s.liveAdvice = s.ex.role === 'cardio' ? null : COACH.liveSetAdvice(s.ex, { repRange: s.ex.repRange, sets: s.sets }, s.log.filter(function (set) { return set.kind !== 'warmup' && set.done; }), s.log[i].restBeforeSec);
     SESSION._rest = allDone ? null : { sec: s.ex.restSec, left: s.ex.restSec, startedAt: Date.now() };
     saveWalkinDraft();
     renderActive();
@@ -782,7 +858,7 @@
       '<div class="picker" style="padding:0"><div class="lab">Pick your machine</div><div class="machopts">' +
       c.modalities.map(function (id) { return '<button type="button" class="macho ' + (id === c.exId ? 'sel' : '') + '" data-action="pick-modality" data-ex="' + id + '" style="width:150px"><span class="nm" style="padding:14px 10px;font-family:var(--disp);text-transform:uppercase">' + esc(EX[id].name) + '</span></button>'; }).join('') + '</div></div>' +
       howPanel(EX[c.exId]) +
-      '<div class="setrow" style="border:1px solid var(--line);border-radius:12px;margin:10px 0"><span class="slab">MIN</span><input type="number" inputmode="numeric" id="cardiomin" value="' + c.minutes + '" style="width:64px"><span class="x">min · effort</span><input type="number" inputmode="numeric" id="cardioeff" placeholder="1-10" style="width:56px"></div>' +
+      '<div class="setrow" style="border:1px solid var(--line);border-radius:12px;margin:10px 0"><span class="slab">MIN</span><input type="number" inputmode="numeric" id="cardiomin" value="' + c.minutes + '" style="width:64px"><span class="x">min · effort</span><input type="number" inputmode="numeric" id="cardioeff" placeholder="1-10" style="width:56px"><input type="number" inputmode="decimal" step="0.01" min="0" id="cardiodist" aria-label="Distance in ' + distUnit() + ', optional" placeholder="' + distUnit() + '" style="width:64px"></div>' +
       '<button class="cta" data-action="log-cardio">Log cardio ✓</button>';
     requestAnimationFrame(pauseReducedMotion);
   }
@@ -803,7 +879,7 @@
     var entry = { day: SESSION.built.dayId, mode: SESSION.mode, gymId: cfg.gymId, goal: trainingProfile.goal, budgetMin: SESSION.budgetMin || null, readiness: SESSION.readiness || null, exercises: [], felt: SESSION.felt || null, note: SESSION.note || '', sessionDurationSec: SESSION.startedAt ? Math.max(1, Math.round((Date.now() - SESSION.startedAt) / 1000)) : null, decisions: (SESSION.built.decisionLog || []).slice() };
     SESSION.built.slots.forEach(function (s) {
       var work = s.log.filter(function (x) { return x.kind !== 'warmup' && x.done && x.reps > 0; });
-      var sets = work.map(function (x) { return { reps: x.reps, minutes: x.minutes != null ? x.minutes : undefined, effort: x.effort != null ? x.effort : undefined, durationSec: x.durationSec != null ? x.durationSec : undefined, distance: x.distance != null ? x.distance : undefined, weight: x.weight || 0, weightPerHand: s.ex.loadMode === 'perHand' ? x.weight || 0 : undefined, loadMode: s.ex.loadMode, rir: x.rir != null ? x.rir : undefined, sides: x.sides || undefined, restBeforeSec: x.restBeforeSec != null ? x.restBeforeSec : undefined, durSec: Math.round(x.durSec), endClock: x.endClock, clusters: (x.clusters && x.clusters.length > 1) ? x.clusters : undefined }; });
+      var sets = work.map(function (x) { return { reps: x.reps, minutes: x.minutes != null ? x.minutes : undefined, effort: x.effort != null ? x.effort : undefined, durationSec: x.durationSec != null ? x.durationSec : undefined, distance: x.distance != null ? x.distance : undefined, distanceUnit: x.distanceUnit || undefined, speed: x.speed != null ? x.speed : undefined, incline: x.incline != null ? x.incline : undefined, level: x.level != null ? x.level : undefined, weight: x.weight || 0, weightPerHand: s.ex.loadMode === 'perHand' ? x.weight || 0 : undefined, loadMode: s.ex.loadMode, rir: x.rir != null ? x.rir : undefined, sides: x.sides || undefined, restBeforeSec: x.restBeforeSec != null ? x.restBeforeSec : undefined, durSec: Math.round(x.durSec), endClock: x.endClock, clusters: (x.clusters && x.clusters.length > 1) ? x.clusters : undefined }; });
       if (sets.length) {
         var sideSets = s.ex.handedness === 'unilateral' ? { left: work.filter(function (x) { return x.sides; }).map(function (x) { return x.sides.left; }), right: work.filter(function (x) { return x.sides; }).map(function (x) { return x.sides.right; }) } : undefined;
         var cardioMinutes = s.ex.role === 'cardio' ? sets.reduce(function (total, set) { return total + Number(set.minutes || 0); }, 0) : undefined;
@@ -827,7 +903,8 @@
   function saveCardio() {
     var min = parseInt((document.getElementById('cardiomin') || {}).value, 10) || SESSION.cardio.minutes;
     var eff = parseInt((document.getElementById('cardioeff') || {}).value, 10) || null;
-    L.appendDailyEntry(log, todayISO(), { day: 'cardio', mode: SESSION.mode, gymId: cfg.gymId, cardio: { modality: EX[SESSION.cardio.exId].equipType, kind: 'steady', minutes: min, avgEffort: eff }, felt: null, note: '' });
+    var dist = parseFloat((document.getElementById('cardiodist') || {}).value);
+    L.appendDailyEntry(log, todayISO(), { day: 'cardio', mode: SESSION.mode, gymId: cfg.gymId, cardio: { modality: EX[SESSION.cardio.exId].equipType, exId: SESSION.cardio.exId, kind: 'steady', minutes: min, avgEffort: eff, distance: isFinite(dist) && dist > 0 ? dist : undefined, distanceUnit: isFinite(dist) && dist > 0 ? distUnit() : undefined }, felt: null, note: '' });
     set('muscles-log', log); plan.sessionCount++; set('muscles-plan', plan);
     SESSION = null; updateHeader(); renderToday(); toast(min + ' min cardio logged 🫁');
   }
@@ -1024,7 +1101,7 @@
     var checks = (guide.adjustmentsAndChecks || []).map(function (item) { return '<li>' + esc(item) + '</li>'; }).join('');
     var mistakes = (guide.mistakes || []).map(function (item) { return '<div class="correction"><b>' + esc(item.mistake) + '</b><span>' + esc(item.correction) + '</span></div>'; }).join('');
     var nickname = eqNames[guide.id] || '';
-    var linkedIds = ((e && e.exerciseIds) || guide.linkedExerciseIds || []).filter(function (xid) { return !!EX[xid]; });
+    var linkedIds = (e ? logIdsFor(e) : (guide.linkedExerciseIds || [])).filter(function (xid) { return !!EX[xid]; });
     el.innerHTML = '<button class="mini" data-action="equipment-back">‹ ' + esc(activeGymName()) + ' equipment</button>' +
       walkinBannerHtml() + '<article class="guide-detail" style="--category:' + guide.categoryColor + '"><header class="guide-head"><span class="guide-label">' + esc(guide.category) + ' · ' + esc(activeGymName()) + (guide.autoEligible === false ? ' · manual only' : ' · coach eligible') + '</span><h1>' + esc(guide.identity) + '</h1>' +
       (nickname ? '<p class="nickname">Personal nickname · “' + esc(nickname) + '”</p>' : '') + '<p>' + esc(guide.purpose) + '</p><div class="guide-meta"><span>' + esc(guide.movementPattern) + '</span><span>' + esc(guide.difficulty) + '</span><span>' + esc(guide.evidence.confidence) + ' confidence</span>' + (guide.zoneId ? '<span>Zone · ' + esc(guide.zoneId.replace(/-/g, ' ')) + '</span>' : '') + '</div></header>' +
@@ -1111,19 +1188,19 @@
     var head = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getDay()] + ' ' + dt.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][dt.getMonth()];
     if (e.sessions && e.sessions.length) {
       wrap.innerHTML = '<div class="lab" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">' + head + ' · ' + e.sessions.length + ' saved sessions</div>' + e.sessions.map(function (session, sessionIndex) {
-        if (session.day === 'cardio' && session.cardio) return '<section class="history-session"><b>Session ' + (sessionIndex + 1) + ' · Cardio</b><p class="sub">' + session.cardio.minutes + ' min · ' + esc(session.cardio.modality) + (session.cardio.avgEffort ? ' · effort ' + session.cardio.avgEffort + '/10' : '') + '</p></section>';
-        var sessionBody = (session.exercises || []).map(function (item) { var exercise = EX[item.exId]; return '<div style="margin:8px 0"><div style="font-family:var(--disp);font-weight:600;text-transform:uppercase;font-size:15px">' + esc(exercise ? exercise.name : item.exId) + '</div>' + (item.sets || []).map(function (set, setIndex) { return '<span class="mono" style="font-size:11.5px;color:var(--muted);margin-right:10px">' + (item.cardioMinutes ? set.minutes + ' min' + (set.effort != null ? ' · effort ' + set.effort + '/10' : '') : 'S' + (setIndex + 1) + ': ' + set.reps + '×' + L.toDisplay(set.weight, cfg.units)) + '</span>'; }).join('') + '</div>'; }).join('');
+        if (session.day === 'cardio' && session.cardio) return '<section class="history-session"><b>Session ' + (sessionIndex + 1) + ' · Cardio</b><p class="sub">' + session.cardio.minutes + ' min · ' + esc(session.cardio.modality) + (session.cardio.distance ? ' · ' + session.cardio.distance + ' ' + esc(session.cardio.distanceUnit || 'mi') : '') + (session.cardio.avgEffort ? ' · effort ' + session.cardio.avgEffort + '/10' : '') + '</p></section>';
+        var sessionBody = (session.exercises || []).map(function (item) { var exercise = EX[item.exId]; return '<div style="margin:8px 0"><div style="font-family:var(--disp);font-weight:600;text-transform:uppercase;font-size:15px">' + esc(exercise ? exercise.name : item.exId) + '</div>' + (item.sets || []).map(function (set, setIndex) { return '<span class="mono" style="font-size:11.5px;color:var(--muted);margin-right:10px">' + (item.cardioMinutes ? cardioSummary(set) : 'S' + (setIndex + 1) + ': ' + set.reps + '×' + L.toDisplay(set.weight, cfg.units)) + '</span>'; }).join('') + '</div>'; }).join('');
         var sessionName = session.day === 'walkin' ? 'Equipment-led gym visit' : (ACTIVE_PROGRAM.days[session.day] ? ACTIVE_PROGRAM.days[session.day].name : session.day);
         return '<section class="history-session"><b>Session ' + (sessionIndex + 1) + ' · ' + esc(sessionName || session.mode || 'Workout') + '</b>' + sessionBody + (session.note ? '<p class="sub">“' + esc(session.note) + '”</p>' : '') + '</section>';
       }).join('');
       return;
     }
-    if (e.day === 'cardio') { wrap.innerHTML = '<div class="lab" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">' + head + ' · Cardio</div><p class="sub" style="margin:0">' + e.cardio.minutes + ' min · ' + esc(e.cardio.modality) + (e.cardio.avgEffort ? ' · effort ' + e.cardio.avgEffort + '/10' : '') + '</p>'; return; }
+    if (e.day === 'cardio') { wrap.innerHTML = '<div class="lab" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">' + head + ' · Cardio</div><p class="sub" style="margin:0">' + e.cardio.minutes + ' min · ' + esc(e.cardio.modality) + (e.cardio.distance ? ' · ' + e.cardio.distance + ' ' + esc(e.cardio.distanceUnit || 'mi') : '') + (e.cardio.avgEffort ? ' · effort ' + e.cardio.avgEffort + '/10' : '') + '</p>'; return; }
     var totMin = 0; (e.exercises || []).forEach(function (it) { (it.sets || []).forEach(function (s) { totMin += (s.durSec || 0); }); });
     var body = (e.exercises || []).map(function (it) {
       var ex = EX[it.exId];
       return '<div style="margin:8px 0"><div style="font-family:var(--disp);font-weight:600;text-transform:uppercase;font-size:15px">' + esc(ex ? ex.name : it.exId) + '</div>' +
-        it.sets.map(function (s, i) { return '<span class="mono" style="font-size:11.5px;color:var(--muted);margin-right:10px">' + (it.cardioMinutes ? s.minutes + ' min' + (s.effort != null ? ' · effort ' + s.effort + '/10' : '') : 'S' + (i + 1) + ': ' + s.reps + '×' + L.toDisplay(s.weight, cfg.units) + (s.durSec ? ' ·' + fmtDur(s.durSec) : '')) + '</span>'; }).join('') + '</div>';
+        it.sets.map(function (s, i) { return '<span class="mono" style="font-size:11.5px;color:var(--muted);margin-right:10px">' + (it.cardioMinutes ? cardioSummary(s) : 'S' + (i + 1) + ': ' + s.reps + '×' + L.toDisplay(s.weight, cfg.units) + (s.durSec ? ' ·' + fmtDur(s.durSec) : '')) + '</span>'; }).join('') + '</div>';
     }).join('');
     var dayName = e.day === 'walkin' ? 'Equipment-led gym visit' : (ACTIVE_PROGRAM.days[e.day] ? ACTIVE_PROGRAM.days[e.day].name : e.day);
     wrap.innerHTML = '<div class="lab" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:2px">' + head + ' · ' + esc(dayName) + (e.mode ? ' · ' + e.mode : '') + '</div>' +

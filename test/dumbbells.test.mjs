@@ -26,7 +26,7 @@ function crunchData() {
 }
 
 test('dumbbell merge preserves stable IDs and expands the complete library without duplicates', () => {
-  assert.equal(EXERCISES.length, 142);
+  assert.equal(EXERCISES.length, 152);
   assert.equal(DUMBBELLS.length, 77);
   assert.equal(EXERCISES.filter((exercise) => exercise.equipType === 'dumbbell').length, 77);
   assert.equal(new Set(EXERCISES.map((exercise) => exercise.id)).size, EXERCISES.length);

@@ -434,7 +434,59 @@
       role: 'cardio', pattern: 'cardio', equipType: 'cardio', repRange: [0, 0], sets: 0, restSec: 0, unilateral: false, increment: { lb: 0, kg: 0 },
       cues: ['Keep a small knee bend at full extension', 'Pedal smoothly', 'Maintain conversational effort'],
       mistakes: ['Seat too close', 'Rocking the hips', 'Starting at high resistance'],
-      pickWeight: 'Start with 10 easy minutes and build duration first.', difficulty: 'beginner' }
+      pickWeight: 'Start with 10 easy minutes and build duration first.', difficulty: 'beginner' },
+
+    /* ---------- 2026-09-27: every Crunch station is now loggable ---------- */
+    { id: 'barbell_seated_ohp', name: 'Seated Barbell Shoulder Press', primary: ['front_delts'], secondary: ['side_delts', 'triceps'],
+      role: 'compound', pattern: 'vertical_press', equipType: 'barbell', repRange: [6, 10], sets: 3, restSec: 120, unilateral: false, increment: { lb: 5, kg: 2.5 },
+      cues: ['Whole back on the pad', 'Press straight up past the face', 'Re-rack on both hooks'],
+      mistakes: ['Arching away from the pad', 'Bar drifting forward', 'Loading without collars'],
+      pickWeight: 'Start with the empty bar and add small plates evenly.', difficulty: 'intermediate' },
+    { id: 'sel_incline_press', name: 'Machine Incline Press', primary: ['chest'], secondary: ['front_delts', 'triceps'],
+      role: 'compound', pattern: 'incline_press', equipType: 'selectorized', repRange: [8, 12], sets: 3, restSec: 90, unilateral: false, increment: { lb: 10, kg: 5 },
+      cues: ['Handles start at upper-chest height', 'Press up and away', 'Control the return'],
+      mistakes: ['Seat too low', 'Shoulders rolling forward', 'Letting the stack slam'],
+      pickWeight: 'Pin a load where rep 10 is hard but clean.', difficulty: 'beginner' },
+    { id: 'machine_lateral_raise', name: 'Machine Lateral Raise', primary: ['side_delts'], secondary: ['traps'],
+      role: 'accessory', pattern: 'lateral', equipType: 'selectorized', repRange: [12, 20], sets: 3, restSec: 60, unilateral: false, increment: { lb: 5, kg: 2.5 },
+      cues: ['Shoulders line up with the pivots', 'Lead with the elbows', 'Pause at shoulder height'],
+      mistakes: ['Shrugging the weight up', 'Swinging the torso', 'Going too heavy'],
+      pickWeight: 'Light pin; the side delts should do the work.', difficulty: 'beginner' },
+    { id: 'machine_triceps_extension', name: 'Machine Triceps Extension', primary: ['triceps'], secondary: [],
+      role: 'accessory', pattern: 'tri_ext', equipType: 'selectorized', repRange: [10, 15], sets: 3, restSec: 60, unilateral: false, increment: { lb: 5, kg: 2.5 },
+      cues: ['Elbows at the machine pivot', 'Upper arms stay on the pad', 'Smooth full extension'],
+      mistakes: ['Shoulders taking over', 'Snapping into lockout', 'Half repetitions'],
+      pickWeight: 'Choose a pin you can extend fully for 12 clean reps.', difficulty: 'beginner' },
+    { id: 'machine_seated_dip', name: 'Machine Seated Dip', primary: ['triceps'], secondary: ['chest', 'front_delts'],
+      role: 'compound', pattern: 'tri_press', equipType: 'selectorized', repRange: [8, 15], sets: 3, restSec: 90, unilateral: false, increment: { lb: 10, kg: 5 },
+      cues: ['Sit tall, shoulders down', 'Press the handles down', 'Return without shrugging'],
+      mistakes: ['Shoulders rolling forward', 'Leaning far forward', 'Bouncing at the top'],
+      pickWeight: 'Begin light enough to keep the torso still.', difficulty: 'beginner' },
+    { id: 'glute_press_machine', name: 'Glute Press / Kickback Machine', primary: ['glutes'], secondary: ['hamstrings'],
+      role: 'accessory', pattern: 'hip_extension', equipType: 'selectorized', repRange: [10, 15], sets: 3, restSec: 60, unilateral: true, increment: { lb: 10, kg: 5 },
+      cues: ['Brace the trunk on the pad', 'Drive through the heel', 'Squeeze the glute, do not arch'],
+      mistakes: ['Arching the low back', 'Kicking with momentum', 'Short range'],
+      pickWeight: 'Light pin; feel the glute, not the low back.', difficulty: 'beginner' },
+    { id: 'machine_pullover', name: 'Machine Pullover', primary: ['lats'], secondary: ['chest', 'triceps'],
+      role: 'accessory', pattern: 'lat_iso', equipType: 'plate', loadModeOverride: 'total', repRange: [10, 15], sets: 3, restSec: 75, unilateral: false, increment: { lb: 5, kg: 2.5 },
+      cues: ['Shoulders line up with the pivot', 'Drive with the elbows in an arc', 'Controlled stretch overhead'],
+      mistakes: ['Pulling with the hands only', 'Arching the back at the stretch', 'Too much load'],
+      pickWeight: 'Log the total plates loaded; start light.', difficulty: 'beginner' },
+    { id: 'ab_coaster', name: 'AbCoaster', primary: ['abs'], secondary: ['obliques'],
+      role: 'core', pattern: 'crunch', equipType: 'bodyweight', repRange: [10, 20], sets: 3, restSec: 60, unilateral: false, increment: { lb: 5, kg: 2.5 },
+      cues: ['Knees on the pad, hands on the handles', 'Curl the knees up by rounding the low back', 'Lower slowly'],
+      mistakes: ['Swinging the carriage', 'Pulling with the arms', 'Rushing the lowering'],
+      pickWeight: 'Bodyweight first; add a plate only when 20 reps are easy.', difficulty: 'beginner' },
+    { id: 'treadmill_run', name: 'Treadmill — Run / Walk-Run', primary: [], secondary: [],
+      role: 'cardio', pattern: 'cardio', equipType: 'cardio', repRange: [0, 0], sets: 0, restSec: 0, unilateral: false, increment: { lb: 0, kg: 0 },
+      cues: ['Walk 5 min to warm up', 'New to running: 1 min jog / 2 min walk', 'Log minutes, distance, speed and effort'],
+      mistakes: ['Starting too fast', 'Holding the rails', 'Skipping the cool-down'],
+      pickWeight: 'Pace, not weight. You should be able to speak in short phrases.', difficulty: 'beginner' },
+    { id: 'stair_climber', name: 'Stair Climber', primary: [], secondary: [],
+      role: 'cardio', pattern: 'cardio', equipType: 'cardio', repRange: [0, 0], sets: 0, restSec: 0, unilateral: false, increment: { lb: 0, kg: 0 },
+      cues: ['Stand tall, light hands on the rails', 'Full foot on each step', 'Start at a slow level'],
+      mistakes: ['Leaning on the rails', 'Tiptoe steps', 'Too high a level on day one'],
+      pickWeight: 'Start with 5–10 easy minutes.', difficulty: 'beginner' }
   ];
 
   // Merge the encyclopedia by stable ID. Existing IDs are enriched in place so
@@ -453,7 +505,7 @@
   };
   return list.map(function (exercise) {
     var assistance = exercise.id === 'assisted_pullup' || exercise.id === 'assisted_dip';
-    var loadMode = assistance ? 'assistance' :
+    var loadMode = exercise.loadModeOverride ? exercise.loadModeOverride : assistance ? 'assistance' :
       exercise.role === 'cardio' ? 'duration' :
       exercise.equipType === 'dumbbell' ? 'perHand' :
       exercise.equipType === 'plate' || exercise.equipType === 'smith' ? 'perSide' :
