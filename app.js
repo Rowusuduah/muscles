@@ -3,7 +3,7 @@
    accessible timers, history, backups, themes and offline-aware navigation. */
 (function () {
   'use strict';
-  var APP_RELEASE = '2026.09.27.1';
+  var APP_RELEASE = '2026.09.27.2';
   var EX = L.byId(EXERCISES), MU = L.byId(MUSCLES);
   var HOME_EQUIPMENT = EQUIPMENT.slice(), HOME_GUIDES = HANDBOOK_GUIDES.slice();
   var PROGRAM_REGISTRY = window.PROGRAM;
@@ -193,6 +193,36 @@
     var dayId = L.dayIdAt(ACTIVE_PROGRAM, plan.cycleIndex || 0);
     return { dayId: dayId, reason: 'Next in ' + ACTIVE_PROGRAM.name + '. Resume the rotation where you left off.' };
   }
+  /* ---- Time Tracker hand-off: copy saved workouts for the tracker's "Paste from app" ---- */
+  var TT_SENT_KEY = 'muscles-tt-sent';
+  function ttSent() { try { return JSON.parse(localStorage.getItem(TT_SENT_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function ttMarkSent(acts) { var s = ttSent(); acts.forEach(function (a) { s[a.id] = a.endTime; }); try { localStorage.setItem(TT_SENT_KEY, JSON.stringify(s)); } catch (e) { /* private mode */ } }
+  function ttPending() { return TT.activitiesFromLog(log, EX, MU, ttSent(), { now: Date.now(), days: 14 }); }
+  function ttCard() {
+    var n = ttPending().length;
+    if (!n) return '';
+    return '<div class="panel gym-banner tt-card" id="tt-card"><div><span class="eyebrow">Time Tracker</span><b>' + n + (n === 1 ? ' workout' : ' workouts') + ' to send</b>' +
+      '<small>Copies ' + (n === 1 ? 'it' : 'them') + '. Then in Time Tracker tap “Paste from app”, and your gym time gets the details.</small></div>' +
+      '<button class="mini" data-action="tt-copy">Send to Time Tracker</button></div>';
+  }
+  var ttPendingCopy = null;
+  function ttCopy() {
+    var acts = ttPending();
+    if (!acts.length) { toast('Nothing new for Time Tracker'); return; }
+    var code = TT.encode({ source: 'muscles', activities: acts });
+    var done = function () { ttMarkSent(acts); ttPendingCopy = null; renderToday(); toast('Copied — open Time Tracker and tap Paste from app'); };
+    var manual = function () {
+      ttPendingCopy = acts;
+      var card = document.getElementById('tt-card');
+      if (!card) return;
+      card.innerHTML = '<div style="flex:1"><span class="eyebrow">Time Tracker</span><small>Copy this code, then tap Paste from app in Time Tracker.</small>' +
+        '<textarea id="tt-code" class="search" readonly rows="3" style="width:100%;margin-top:6px;font-size:16px">' + esc(code) + '</textarea></div>' +
+        '<button class="mini" data-action="tt-done">I copied it</button>';
+      var ta = document.getElementById('tt-code'); if (ta) { ta.focus(); ta.select(); }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, manual);
+    else manual();
+  }
   function renderToday() {
     if (!cfg.onboarded) return renderOnboarding();
     if (SESSION) return renderSession();
@@ -214,7 +244,7 @@
         '</div></div></div>';
 
     var gymBanner = '<div class="panel gym-banner"><div><span class="eyebrow">Active gym today</span><b>' + esc(activeGymName()) + '</b><small>Workout, substitutions and equipment guidance are scoped to this gym.</small></div><button class="mini" data-action="gym-jump">Change gym</button></div>';
-    el.innerHTML = hero + gymBanner +
+    el.innerHTML = ttCard() + hero + gymBanner +
       '<button class="modebtn primary" data-action="start-alone"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M6 21c0-4 2.6-7 6-7s6 3 6 7"/></svg></span>' +
       '<span><span class="t">Start coached workout</span><span class="d">' + esc(ACTIVE_PROGRAM.name) + ' · ' + esc(day.name) + '</span></span></button>' +
       '<button class="modebtn" data-action="start-partner"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3.5 2.7-6 6-6s6 2.5 6 6M14.5 20c.2-2.6 1.8-4.4 4-4.4s3.3 1.4 3.5 4.4"/></svg></span>' +
@@ -876,7 +906,8 @@
   }
   function saveLiftSession() {
     var date = todayISO();
-    var entry = { day: SESSION.built.dayId, mode: SESSION.mode, gymId: cfg.gymId, goal: trainingProfile.goal, budgetMin: SESSION.budgetMin || null, readiness: SESSION.readiness || null, exercises: [], felt: SESSION.felt || null, note: SESSION.note || '', sessionDurationSec: SESSION.startedAt ? Math.max(1, Math.round((Date.now() - SESSION.startedAt) / 1000)) : null, decisions: (SESSION.built.decisionLog || []).slice() };
+    var endedAt = Date.now();
+    var entry = { id: TT.newSessionId(endedAt), name: SESSION.built.name || '', startedAt: SESSION.startedAt || null, endedAt: endedAt, day: SESSION.built.dayId, mode: SESSION.mode, gymId: cfg.gymId, goal: trainingProfile.goal, budgetMin: SESSION.budgetMin || null, readiness: SESSION.readiness || null, exercises: [], felt: SESSION.felt || null, note: SESSION.note || '', sessionDurationSec: SESSION.startedAt ? Math.max(1, Math.round((endedAt - SESSION.startedAt) / 1000)) : null, decisions: (SESSION.built.decisionLog || []).slice() };
     SESSION.built.slots.forEach(function (s) {
       var work = s.log.filter(function (x) { return x.kind !== 'warmup' && x.done && x.reps > 0; });
       var sets = work.map(function (x) { return { reps: x.reps, minutes: x.minutes != null ? x.minutes : undefined, effort: x.effort != null ? x.effort : undefined, durationSec: x.durationSec != null ? x.durationSec : undefined, distance: x.distance != null ? x.distance : undefined, distanceUnit: x.distanceUnit || undefined, speed: x.speed != null ? x.speed : undefined, incline: x.incline != null ? x.incline : undefined, level: x.level != null ? x.level : undefined, weight: x.weight || 0, weightPerHand: s.ex.loadMode === 'perHand' ? x.weight || 0 : undefined, loadMode: s.ex.loadMode, rir: x.rir != null ? x.rir : undefined, sides: x.sides || undefined, restBeforeSec: x.restBeforeSec != null ? x.restBeforeSec : undefined, durSec: Math.round(x.durSec), endClock: x.endClock, clusters: (x.clusters && x.clusters.length > 1) ? x.clusters : undefined }; });
@@ -904,7 +935,8 @@
     var min = parseInt((document.getElementById('cardiomin') || {}).value, 10) || SESSION.cardio.minutes;
     var eff = parseInt((document.getElementById('cardioeff') || {}).value, 10) || null;
     var dist = parseFloat((document.getElementById('cardiodist') || {}).value);
-    L.appendDailyEntry(log, todayISO(), { day: 'cardio', mode: SESSION.mode, gymId: cfg.gymId, cardio: { modality: EX[SESSION.cardio.exId].equipType, exId: SESSION.cardio.exId, kind: 'steady', minutes: min, avgEffort: eff, distance: isFinite(dist) && dist > 0 ? dist : undefined, distanceUnit: isFinite(dist) && dist > 0 ? distUnit() : undefined }, felt: null, note: '' });
+    var cardioEnd = Date.now();
+    L.appendDailyEntry(log, todayISO(), { id: TT.newSessionId(cardioEnd), name: 'Cardio', startedAt: SESSION.startedAt || null, endedAt: cardioEnd, day: 'cardio', mode: SESSION.mode, gymId: cfg.gymId, cardio: { modality: EX[SESSION.cardio.exId].equipType, exId: SESSION.cardio.exId, kind: 'steady', minutes: min, avgEffort: eff, distance: isFinite(dist) && dist > 0 ? dist : undefined, distanceUnit: isFinite(dist) && dist > 0 ? distUnit() : undefined }, felt: null, note: '' });
     set('muscles-log', log); plan.sessionCount++; set('muscles-plan', plan);
     SESSION = null; updateHeader(); renderToday(); toast(min + ' min cardio logged 🫁');
   }
@@ -1484,6 +1516,8 @@
       case 'next-slot': nextSlot(); break;
       case 'cancel-session': SESSION = null; clearInterval(workInt); clearInterval(restInt); renderToday(); break;
       case 'felt': SESSION.felt = +d('data-v'); document.querySelectorAll('[data-action=felt]').forEach(function (b) { b.classList.remove('sel'); }); a.classList.add('sel'); break;
+      case 'tt-copy': ttCopy(); break;
+      case 'tt-done': if (ttPendingCopy) { ttMarkSent(ttPendingCopy); ttPendingCopy = null; } renderToday(); break;
       case 'save-session': { var n = document.getElementById('snote'); SESSION.note = n ? n.value : ''; saveLiftSession(); break; }
       case 'pick-modality': SESSION.cardio.exId = d('data-ex'); renderCardio(); break;
       case 'log-cardio': saveCardio(); break;
