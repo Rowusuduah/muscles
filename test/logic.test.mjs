@@ -464,8 +464,8 @@ test('installed app exposes explicit update checking and a new versioned cache',
   assert.match(html, /reg\.update\(\)/);
   assert.match(html, /visibilitychange/);
   assert.match(html, /updateViaCache:'none'/);
-  assert.match(app, /2026\.09\.27\.1/);
-  assert.match(sw, /2026-09-27-r21/);
+  assert.match(app, /2026\.09\.27\.2/);
+  assert.match(sw, /2026-09-27-r22/);
 });
 
 test('motion guide has detailed phases and an exercise-specific plank-drag view', () => {

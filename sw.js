@@ -1,7 +1,7 @@
 /* muscles — update-safe offline service worker.
    HTML is network-first, the versioned shell is precached, and the large handbook
    PDF is cached only after the owner opens it online. */
-var CACHE = 'muscles-verified-v2-2026-09-27-r21';
+var CACHE = 'muscles-verified-v2-2026-09-27-r22';
 var PDF = 'Complete_Gym_Equipment_Handbook_Revised.pdf';
 var EQUIPMENT = Array.from({ length: 51 }, function (_, i) { return 'assets/equipment/eq' + (i + 1) + '.webp'; });
 var DEMO_IDS = [
@@ -16,7 +16,7 @@ var DEMOS = DEMO_IDS.reduce(function (all, id) {
    fully offline on weak gym Wi-Fi, exactly like the Original Gym's shots. */
 var CRUNCH = Array.from({ length: 140 }, function (_, i) { return 'assets/crunch/img_' + (2079 + i) + '.webp'; });
 var SHELL = [
-  './', 'index.html', 'app.js', 'logic.js', 'coach.js', 'figure.js', 'howto.js', 'drive.js',
+  './', 'index.html', 'app.js', 'logic.js', 'coach.js', 'tracker.js', 'figure.js', 'howto.js', 'drive.js',
   'data/muscles.js', 'data/dumbbells.js', 'data/exercises.js', 'data/handbook.js', 'data/equipment.js', 'data/crunch.js',
   'data/program.js', 'data/state.js', 'data/demos.js', 'manifest.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'og.png',

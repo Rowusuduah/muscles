@@ -7,6 +7,6 @@
   },
   "scripts": {
     "test": "node --test",
-    "validate": "node --check app.js && node --check coach.js && node --check howto.js && node --check logic.js && node --check data/dumbbells.js && node --check data/exercises.js && node --check data/equipment.js && node --check data/crunch.js && node --check data/state.js && node --check sw.js && node --test"
+    "validate": "node --check app.js && node --check coach.js && node --check howto.js && node --check logic.js && node --check tracker.js && node --check data/dumbbells.js && node --check data/exercises.js && node --check data/equipment.js && node --check data/crunch.js && node --check data/state.js && node --check sw.js && node --test"
   }
 }
