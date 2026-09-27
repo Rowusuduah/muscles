@@ -398,6 +398,22 @@ nav.tabs .inner{max-width:980px}
 .map-zone p{margin:5px 0 0;color:var(--muted);font-size:12px}
 
 .macho .nm small{display:block;margin-top:2px;font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+
+/* Labeled set inputs: a beginner always sees which box is reps, load and RIR. */
+.fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fld>span{font-family:var(--mono);font-size:8.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.subin.labeled{align-items:flex-end;flex-wrap:nowrap}
+.subin.labeled .fld input{width:62px}
+.subin.labeled .fld input.rir{width:52px}
+.subin.cardio-in{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:8px;width:100%}
+.subin.cardio-in .fld input{width:100%}
+.setrow.run.col .endbtn{min-height:48px}
+.cardio-plan{margin:10px 14px;padding:12px 14px;border:1px solid var(--emberline);border-radius:12px;background:var(--emberwash)}
+.cardio-plan ol{margin:6px 0 6px 18px;padding:0;display:grid;gap:3px;font-size:13px}
+.cardio-plan small{display:block;color:var(--muted);font-size:12px}
+.cardio-plan .t{margin:8px 0 0;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--chalk)}
+.location-cue{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:10px 14px 0}
+.location-cue span{color:var(--muted)}
 </style>
 </head>
 <body>

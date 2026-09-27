@@ -7,7 +7,8 @@ The signature Iron & Chalk dark theme is retained, with a system-aware light the
 ## Verified equipment libraries
 
 - The original gym keeps exactly 45 authoritative guides mapping all 51 photographs, including grouped alternate views and explicit filename traceability.
-- Crunch Fitness adds 60 model-level guides derived from 140 unique canonical photos. Repeated sightings/angles are grouped instead of counted as extra equipment.
+- Crunch Fitness adds 64 model-level guides derived from 140 unique canonical photos (every photo is assigned; the 2026-09-27 re-audit added the Olympic flat/incline/decline/military bench row from IMG_2133–2141). Repeated sightings/angles are grouped instead of counted as extra equipment.
+- Every Crunch station can be logged from its guide. Manual-only stations (Smith, functional trainers, unlabelled plate-loaded pieces) are never auto-prescribed but stay loggable when chosen by hand. Cardio stations log minutes plus optional distance, speed, incline or level, and effort.
 - Crunch identities use readable equipment plaques when available. Ambiguous plate-loaded/cardio pieces are marked manual-only and excluded from automatic workout selection.
 - Every coached program slot has either a verified Crunch-compatible movement or a verified alternative from the program's existing substitution list.
 - Crunch includes a schematic zone map built from EXIF capture sequence, timestamps, camera direction, and visible adjacency. Indoor GPS is used only to anchor the venue because the photo audit's median horizontal error is about 22.6 m.
@@ -51,7 +52,7 @@ app.js                     SPA routes, training, guides, progress, Learn and set
 logic.js                   Pure session, progression, consistency and unit logic
 howto.js                   Equipment-aware, reduced-motion-safe code demonstrations
 data/handbook.js           Original gym's generated 45-guide/51-photo browser data
-data/crunch.js             Crunch 140-photo audit, 60 guides, mappings and schematic zone map
+data/crunch.js             Crunch 140-photo audit, 64 guides, mappings and schematic zone map
 data/exercises.js          Versioned active and deprecated exercise definitions
 data/program.js            Versioned program registry and warm-up prescriptions
 data/state.js              AppStateV2 migration and validated backup/restore
@@ -68,6 +69,6 @@ tools/                     Handbook export and acceptance validation scripts
 
 There is no account database, analytics upload, or cloud workout storage. App state is stored locally under schema version 2. Export creates a validated JSON backup; import previews a summary and replaces local state only after confirmation. Invalid or future-version backups are rejected without changing current data.
 
-The original complete handbook is linked from Learn as `Complete_Gym_Equipment_Handbook_Revised.pdf`. Crunch guide data is part of the app shell; Crunch source photos are referenced from the user's Google Drive and therefore require network access unless already browser-cached.
+The original complete handbook is linked from Learn as `Complete_Gym_Equipment_Handbook_Revised.pdf`. Crunch guide data is part of the app shell; Crunch source photos are bundled as 560 px WebP copies in `assets/crunch/` and precached by the service worker, so every guide works fully offline on weak gym Wi-Fi.
 
 Exercise demonstration source photographs in `assets/demos/` derive from [free-exercise-db](https://github.com/yuhonas/free-exercise-db), released under the Unlicense. The generated OpenAI social artwork is `og.png`; the equipment photographs and handbook remain the user's private source material.

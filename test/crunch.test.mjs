@@ -38,8 +38,28 @@ test('Crunch inventory is model-level, unique and traceable to the 140-photo aud
     assert.ok(guide.photos?.length >= 1);
     for (const photo of guide.photos) {
       assert.match(photo.filename, /^IMG_\d{4}\.JPG$/);
-      assert.ok(photo.webp.startsWith('https://drive.google.com/thumbnail?id='));
+      // Crunch photos are bundled locally like the Original Gym so they load
+      // instantly and work fully offline — never from a remote Google Drive URL.
+      assert.ok(!/drive\.google\.com/.test(photo.webp), guide.id + ' still points at Google Drive');
+      assert.match(photo.webp, /^assets\/crunch\/img_\d{4}\.webp$/);
     }
+  }
+});
+
+test('every Crunch photo is a local file that exists on disk and is precached by the service worker', () => {
+  // Evaluate sw.js in a stubbed worker scope so we can read its real SHELL precache list.
+  const swSource = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  const swScope = {
+    self: { addEventListener() {}, location: { origin: 'https://x' }, skipWaiting() {}, clients: { claim() {} } },
+    caches: {}, fetch() {}, console,
+  };
+  vm.createContext(swScope);
+  vm.runInContext(swSource, swScope, { filename: 'sw.js' });
+  const precached = new Set(swScope.SHELL);
+  const referenced = new Set(GUIDES.flatMap((guide) => guide.photos.map((photo) => photo.webp)));
+  for (const rel of referenced) {
+    assert.ok(fs.existsSync(path.join(root, rel)), 'missing local asset ' + rel);
+    assert.ok(precached.has(rel), 'service worker SHELL does not precache ' + rel);
   }
 });
 
@@ -73,6 +93,44 @@ test('all Crunch coach-linked exercise IDs exist in the exercise library', () =>
       assert.ok(EX[exerciseId], item.id + ' -> unknown exercise ' + exerciseId);
     }
   }
+});
+
+test('all 140 audit photos belong to a guide — nothing photographed is left unidentified', () => {
+  const used = new Set(GUIDES.flatMap((guide) => guide.photos.map((photo) => photo.number)));
+  const missing = [];
+  for (let n = 2079; n <= 2218; n++) if (!used.has(n)) missing.push('IMG_' + n);
+  assert.deepEqual(missing, []);
+  assert.equal(used.size, GYM.photoCount);
+});
+
+test('the Olympic bench row found in the 2026-09-27 re-audit is mapped to barbell movements', () => {
+  const byId = Object.fromEntries(GUIDES.map((guide) => [guide.id, guide]));
+  const expected = {
+    'cr-olympic-flat-bench': 'barbell_bench',
+    'cr-olympic-incline-bench': 'barbell_incline',
+    'cr-olympic-decline-bench': 'barbell_decline',
+    'cr-olympic-military-bench': 'barbell_seated_ohp',
+  };
+  for (const [guideId, exerciseId] of Object.entries(expected)) {
+    assert.ok(byId[guideId], guideId);
+    assert.equal(byId[guideId].zoneId, 'olympic-benches');
+    assert.ok(byId[guideId].linkedExerciseIds.includes(exerciseId), guideId + ' -> ' + exerciseId);
+    assert.ok(EX[exerciseId], exerciseId);
+  }
+  assert.ok(MAP.zones.some((zone) => zone.id === 'olympic-benches'));
+});
+
+test('every Crunch station can be logged from its guide, including manual-only stations', () => {
+  for (const item of EQUIPMENT) {
+    const loggable = (item.logExerciseIds || []).filter((id) => EX[id]);
+    assert.ok(loggable.length > 0, item.id + ' has nothing the owner can log');
+    for (const id of item.exerciseIds || []) assert.ok(item.logExerciseIds.includes(id), item.id + ' coach id not loggable: ' + id);
+  }
+  const byId = Object.fromEntries(EQUIPMENT.map((item) => [item.id, item]));
+  assert.ok(byId['cr-smith-machine'].logExerciseIds.includes('smith_bench'));
+  assert.deepEqual(Array.from(byId['cr-smith-machine'].exerciseIds), []);
+  assert.deepEqual(Array.from(byId['cr-treadmills'].logExerciseIds).slice(0, 1), ['treadmill_run']);
+  assert.ok(byId['cr-cardio-steppers'].logExerciseIds.includes('stair_climber'));
 });
 
 test('Crunch map is explicitly schematic because indoor GPS is not machine-accurate', () => {

@@ -1,7 +1,7 @@
 /* muscles — update-safe offline service worker.
    HTML is network-first, the versioned shell is precached, and the large handbook
    PDF is cached only after the owner opens it online. */
-var CACHE = 'muscles-verified-v2-2026-09-25-r20';
+var CACHE = 'muscles-verified-v2-2026-09-27-r21';
 var PDF = 'Complete_Gym_Equipment_Handbook_Revised.pdf';
 var EQUIPMENT = Array.from({ length: 51 }, function (_, i) { return 'assets/equipment/eq' + (i + 1) + '.webp'; });
 var DEMO_IDS = [
@@ -11,6 +11,10 @@ var DEMOS = DEMO_IDS.reduce(function (all, id) {
   all.push('assets/demos/' + id + '_0.webp', 'assets/demos/' + id + '_1.webp');
   return all;
 }, []);
+/* Crunch Fitness guide photos are bundled locally (560 px WebP copies of the
+   2026-09-22 audit, IMG_2079–IMG_2218, all 140) so they load instantly and work
+   fully offline on weak gym Wi-Fi, exactly like the Original Gym's shots. */
+var CRUNCH = Array.from({ length: 140 }, function (_, i) { return 'assets/crunch/img_' + (2079 + i) + '.webp'; });
 var SHELL = [
   './', 'index.html', 'app.js', 'logic.js', 'coach.js', 'figure.js', 'howto.js', 'drive.js',
   'data/muscles.js', 'data/dumbbells.js', 'data/exercises.js', 'data/handbook.js', 'data/equipment.js', 'data/crunch.js',
@@ -18,7 +22,7 @@ var SHELL = [
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'og.png',
   'fonts/Oswald-Variable.ttf', 'fonts/IBMPlexMono-Regular.ttf',
   'fonts/IBMPlexMono-SemiBold.ttf', 'fonts/Inter-Variable.ttf'
-].concat(EQUIPMENT, DEMOS);
+].concat(EQUIPMENT, DEMOS, CRUNCH);
 
 self.addEventListener('install', function (event) {
   event.waitUntil(caches.open(CACHE).then(function (cache) {
